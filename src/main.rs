@@ -13,30 +13,34 @@ use serde::{Deserialize, Serialize};
 use tracing_subscriber;
 use tracing::debug;
 
-
-
-
 #[tokio::main]
 async fn main() {
-    
     tracing_subscriber::fmt::init();
-
-    let shared_state = SharedState::default();
-
-    let app = Router::new()
-        .route("/paste", post(create_paste))
-        .route("/paste/:key", get(find_paste))
-        .route("/paste/:key", delete(delete_paste))
-        .layer(Extension(shared_state));
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     debug!("listening on {}", addr);
     println!("listening on {}", addr);
 
     axum::Server::bind(&addr)
-        .serve(app.into_make_service())
+        .serve(create_app().into_make_service())
         .await
         .unwrap();
+}
+
+fn create_app() -> Router {
+    let shared_state = SharedState::default();
+
+    let app = Router::new()
+        .route("/", get(root))
+        .route("/paste", post(create_paste))
+        .route("/paste/:key", get(find_paste))
+        .route("/paste/:key", delete(delete_paste))
+        .layer(Extension(shared_state));
+    return app
+}
+
+async fn root() -> &'static str {
+    "hello world"
 }
 
 async fn create_paste(
@@ -103,3 +107,31 @@ struct AppState {
 }
 
 type SharedState = Arc<RwLock<AppState>>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tower::ServiceExt;
+    use tower::Service;
+    use axum::{
+        http::{self, Request, StatusCode},
+        body::Body,
+    };
+    use hyper::body;
+
+    #[tokio::test]
+    async fn root() {
+        let app = create_app();
+
+        let resp = app
+            .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let body = body::to_bytes(resp.into_body()).await.unwrap();
+        assert_eq!(&body[..], b"hello world");
+    }
+}
+
