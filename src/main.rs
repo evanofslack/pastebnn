@@ -33,9 +33,9 @@ fn create_app() -> Router {
 
     let app = Router::new()
         .route("/", get(root))
-        .route("/paste", post(create_paste))
-        .route("/paste/:key", get(find_paste))
-        .route("/paste/:key", delete(delete_paste))
+        .route("/api/paste", post(create_paste))
+        .route("/api/paste/:key", get(find_paste))
+        .route("/api/paste/:key", delete(delete_paste))
         .layer(Extension(shared_state))
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());
