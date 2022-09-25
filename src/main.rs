@@ -19,6 +19,7 @@ async fn main() {
     tracing_subscriber::fmt::init();
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    debug!("listening on {}", addr);
     println!("listening on {}", addr);
 
     axum::Server::bind(&addr)
