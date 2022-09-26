@@ -17,7 +17,8 @@
 
         let res = await fetch(baseURL, requestOptions);
         let resp = await res.text();
-        alert(resp)
+        window.location.replace("/" + paste.key)
+        // alert(resp)
 
 	}
 </script>
@@ -27,8 +28,8 @@
         raste
     </h1>
 </div>
-<textarea class="w-full h-96 m-6 border" value={text}></textarea>
-<input value={key}/>
+<textarea class="w-full h-64 border p-2" bind:value={text}></textarea>
+<input class="border p-1" bind:value={key}/>
 <div>
-    <button on:click={handleSubmit} >submit</button>
+    <button class="border p-1" on:click={handleSubmit} >submit</button>
 </div>
