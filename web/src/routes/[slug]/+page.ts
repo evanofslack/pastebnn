@@ -1,26 +1,39 @@
 import type { Page } from '@sveltejs/kit';
-// import type { Paste } from '../../../interfaces';
+import type { Paste } from '../../../interfaces';
 
 const baseURL = 'http://localhost:3000/';
 
-// async function getPaste(key: string) {
-// 	fetch(baseURL + 'api/paste/' + key, { headers: { accept: 'application/json' } })
-// 		.then((res) => res.json())
-// 		.then((json) => {
-// 			return json;
-// 		});
-// 	.then((json) => JSON.parse(json))
-// 	.then((data) => console.log(data));
-// 	.then((json) => {
-// 		const paste = JSON.parse(json);
-// 		return paste;
-// 	});
-// }
+// Standard variation
+function fetchPastes<T>(url: string): Promise<T> {
+	return fetch(url).then((response) => {
+		if (!response.ok) {
+			throw new Error(response.statusText);
+		}
+		return response.json() as Promise<T>;
+	});
+}
 
 /** @type {import('./$types').PageLoad} */
 export async function load({ params }: Page) {
-	const res = await fetch(baseURL + 'api/paste/' + params.slug);
-	const paste = await res.json();
+	const pasteID = params.slug;
+	const endpoint = baseURL + 'api/paste/' + pasteID;
+	const res = await fetch(endpoint);
+	const paste: Paste = await res.json();
 	console.log(paste);
 	return { paste: paste };
 }
+
+// /** @type {import('./$types').PageLoad} */
+// export async function load({ params }: Page) {
+// 	const pasteID = params.slug;
+// 	const endpoint = baseURL + 'api/paste/' + pasteID;
+// 	fetchPastes<Paste>(endpoint)
+// 		.then((paste) => {
+// 			console.log(paste.text);
+// 			return { paste: paste };
+// 		})
+// 		.catch((error) => {
+// 			/* show error message */
+// 			console.log(error);
+// 		});
+// }

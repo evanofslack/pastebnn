@@ -5,5 +5,6 @@ export interface CreatePaste {
 
 export interface Paste {
 	id: string;
-	Paste;
+	key: string;
+	text: string;
 }
