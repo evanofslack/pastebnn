@@ -8,6 +8,7 @@ use std::{
     net::SocketAddr,
     sync::{Arc, RwLock},
 };
+use tower_http::{cors::CorsLayer,trace::TraceLayer};
 use uuid::Uuid;
 use serde::{Deserialize, Serialize};
 use tracing_subscriber;
@@ -32,10 +33,12 @@ fn create_app() -> Router {
 
     let app = Router::new()
         .route("/", get(root))
-        .route("/paste", post(create_paste))
-        .route("/paste/:key", get(find_paste))
-        .route("/paste/:key", delete(delete_paste))
-        .layer(Extension(shared_state));
+        .route("/api/paste", post(create_paste))
+        .route("/api/paste/:key", get(find_paste))
+        .route("/api/paste/:key", delete(delete_paste))
+        .layer(Extension(shared_state))
+        .layer(CorsLayer::permissive())
+        .layer(TraceLayer::new_for_http());
     return app
 }
 
@@ -112,9 +115,8 @@ type SharedState = Arc<RwLock<AppState>>;
 mod tests {
     use super::*;
     use tower::ServiceExt;
-    use tower::Service;
     use axum::{
-        http::{self, Request, StatusCode},
+        http::{Request, StatusCode},
         body::Body,
     };
     use hyper::body;
