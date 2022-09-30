@@ -9,10 +9,10 @@ use std::{
     sync::{Arc, RwLock},
 };
 use tower_http::{cors::CorsLayer,trace::TraceLayer};
-use uuid::Uuid;
-use serde::{Deserialize, Serialize};
 use tracing_subscriber;
 use tracing::debug;
+
+mod models;
 
 #[tokio::main]
 async fn main() {
@@ -47,15 +47,11 @@ async fn root() -> &'static str {
 }
 
 async fn create_paste(
-    Json(payload): Json<CreatePaste>,
+    Json(payload): Json<models::CreatePaste>,
     Extension(state): Extension<SharedState>,
 ) -> impl IntoResponse  {
 
-    let paste = Paste {
-        id: Uuid::new_v4(),
-        key: payload.key,
-        text: payload.text,
-    };
+    let paste = models::Paste::new(payload.key, payload.text, payload.expires);
 
     state.write().unwrap().db.insert(paste.key.clone(), paste.clone());
 
@@ -91,22 +87,10 @@ async fn delete_paste(
     }
 }
 
-#[derive(Deserialize)]
-struct CreatePaste {
-    key: String,
-    text: String,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-struct Paste {
-    id: Uuid,
-    key: String,
-    text: String,
-}
 
 #[derive(Default)]
 struct AppState {
-    db: HashMap<String, Paste>
+    db: HashMap<String, models::Paste>
 }
 
 type SharedState = Arc<RwLock<AppState>>;
