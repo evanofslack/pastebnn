@@ -3,15 +3,6 @@ import type { Paste } from '../../../interfaces';
 
 const baseURL = 'http://localhost:3000/';
 
-// Standard variation
-function fetchPastes<T>(url: string): Promise<T> {
-	return fetch(url).then((response) => {
-		if (!response.ok) {
-			throw new Error(response.statusText);
-		}
-		return response.json() as Promise<T>;
-	});
-}
 
 /** @type {import('./$types').PageLoad} */
 export async function load({ params }: Page) {
