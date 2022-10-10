@@ -3,35 +3,31 @@ use std::collections::HashMap;
 use super::models;
 
 pub trait PasteService {
-    fn get(&self, key: String) -> Result<models::Paste, Err>;
-    fn create(&self, paste: models::Paste) -> Result<(), Err>;
-    fn delete(&self, key: String) -> Result<models::Paste, Err>;
+    fn get(&mut self, key: String) -> Result<&models::Paste, &'static str>;
+    fn create(&mut self, paste: models::Paste) -> Result<(), &'static str>;
+    fn delete(&mut self, key: String) -> Result<models::Paste, &'static str>;
 }
 
+#[derive(Default)]
 pub struct InMemory {
-    db: HashMap<String, models::Paste>
+    pub db: HashMap<String, models::Paste>
 }
 
 impl PasteService for InMemory {
-    fn get(&self, key: String) -> Result<models::Paste, Err> {
+    fn get(&mut self, key: String) -> Result<&models::Paste, &'static str> {
         if let Some(paste) = self.db.get(&key) {
             return Ok(paste)
         } else {
             return Err("no paste found")
         }
-        // let paste = self.db.get(&key);
-        // match paste {
-        //     Some(paste) => {Ok(paste)}
-        //     None() => {Err("no paste found for key")}
-        // }
     }
 
-    fn create(&self, paste: models::Paste) -> Result<(), Err>{
-        let paste = self.db.insert(paste.key.clone(), paste.clone());
+    fn create(&mut self, paste: models::Paste) -> Result<(), &'static str>{
+        self.db.insert(paste.key.clone(), paste.clone());
         return Ok(())
 
     }
-    fn delete(&self, key: String) -> Result<models::Paste, Err>{
+    fn delete(&mut self, key: String) -> Result<models::Paste, &'static str>{
         if let Some(paste) = self.db.remove(&key) {
             return Ok(paste)
         } else {

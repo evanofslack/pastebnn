@@ -4,7 +4,6 @@ use axum::{routing::{get, post, delete},
     extract::{Extension, Path},
     Json, Router};
 use std::{
-    collections::HashMap,
     net::SocketAddr,
     sync::{Arc, RwLock},
 };
@@ -13,6 +12,7 @@ use tracing_subscriber;
 use tracing::debug;
 
 mod models;
+mod db;
 
 #[tokio::main]
 async fn main() {
@@ -52,8 +52,7 @@ async fn create_paste(
 ) -> impl IntoResponse  {
 
     let paste = models::Paste::new(payload.key, payload.text, payload.expires);
-
-    state.write().unwrap().db.insert(paste.key.clone(), paste.clone());
+    state.write().unwrap().create(paste.clone());
 
     return (StatusCode::CREATED, Json(paste))
 }
@@ -62,14 +61,21 @@ async fn find_paste(
     Path(key): Path<String>,
     Extension(state): Extension<SharedState>,
 ) -> Result<impl IntoResponse, StatusCode>  {
+    
 
-    let db = &state.read().unwrap().db;
+    if let Ok(paste) = state.write().unwrap().get(key) {
+        return Ok(Json(paste.clone()));
 
-    if let Some(value) = db.get(&key) {
-        return Ok(Json(value.clone()));
     } else {
         return Err(StatusCode::NOT_FOUND);
     }
+    // let db = &state.read().unwrap().db;
+
+    // if let Some(value) = db.get(&key) {
+    //     return Ok(Json(value.clone()));
+    // } else {
+    //     return Err(StatusCode::NOT_FOUND);
+    // }
 }
 
 async fn delete_paste(
@@ -80,20 +86,30 @@ async fn delete_paste(
     // let db = &state.write().unwrap().db;
     // if let Some(value) = db.remove(&key){
 
-    if let Some(value) = &state.write().unwrap().db.remove(&key) {
-        return Ok(Json(value.clone()));
+    // if let Some(value) = &state.write().unwrap().db.remove(&key) {
+    //     return Ok(Json(value.clone()));
+    // } else {
+    //     return Err(StatusCode::NOT_FOUND);
+    // }
+
+    if let Ok(paste) = state.write().unwrap().delete(key) {
+        return Ok(Json(paste.clone()));
+
     } else {
         return Err(StatusCode::NOT_FOUND);
     }
+
 }
 
 
-#[derive(Default)]
-struct AppState {
-    db: HashMap<String, models::Paste>
-}
+// #[derive(Default)]
+// struct AppState {
+//     db: HashMap<String, models::Paste>
+// }
 
-type SharedState = Arc<RwLock<AppState>>;
+
+type SharedState = Arc<RwLock<dyn db::PasteService>>;
+// type SharedState = Arc<RwLock<AppState>>;
 
 #[cfg(test)]
 mod tests {
