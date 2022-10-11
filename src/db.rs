@@ -7,7 +7,7 @@ use super::models;
 
 #[async_trait]
 pub trait Storer {
-    async fn get(&self, key: String) -> Result<&models::Paste, &'static str>;
+    async fn get(&self, key: String) -> Result<models::Paste, &'static str>;
     async fn create(&self, paste: models::Paste) -> Result<(), &'static str>;
     async fn delete(&self, key: String) -> Result<models::Paste, &'static str>;
 }
@@ -20,9 +20,9 @@ pub struct InMemory {
 
 #[async_trait]
 impl Storer for InMemory {
-    async fn get(&self, key: String) -> Result<&models::Paste, &'static str> {
+    async fn get(&self, key: String) -> Result<models::Paste, &'static str> {
         if let Some(paste) = self.db.write().unwrap().get(&key) {
-            return Ok(paste)
+            return Ok(paste.clone())
         } else {
             return Err("no paste found")
         }

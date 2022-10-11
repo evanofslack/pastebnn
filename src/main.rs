@@ -5,7 +5,7 @@ use axum::{routing::{get, post, delete},
     Json, Router};
 use std::{
     net::SocketAddr,
-    sync::{Arc, RwLock},
+    sync::Arc,
 };
 use tower_http::{cors::CorsLayer,trace::TraceLayer};
 use tracing_subscriber;
@@ -30,14 +30,15 @@ async fn main() {
 
 fn create_app() -> Router {
     // let shared_state = SharedState::default();
-    let shared_state = Arc::new(db::InMemory::default());
+    // let shared_state = Arc::new(db::InMemory::default());
+    let paste_repo = Arc::new(db::InMemory::default()) as DynStorer;
 
     let app = Router::new()
         .route("/", get(root))
         .route("/api/paste", post(create_paste))
         .route("/api/paste/:key", get(find_paste))
         .route("/api/paste/:key", delete(delete_paste))
-        .layer(Extension(shared_state))
+        .layer(Extension(paste_repo))
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());
     return app
@@ -47,21 +48,23 @@ async fn root() -> &'static str {
     "hello world"
 }
 
-#[axum_macros::debug_handler]
 async fn create_paste(
     Json(payload): Json<models::CreatePaste>,
-    Extension(state): Extension<SharedState>,
+    Extension(state): Extension<DynStorer>,
 ) -> impl IntoResponse  {
 
     let paste = models::Paste::new(payload.key, payload.text, payload.expires);
-    let res = state.write().unwrap().create(paste.clone()).await;
+    match state.create(paste.clone()).await {
+        Ok(()) => {} ,
+        Err(error) => panic!("Problem creating paste: {:?}", error),
+    };
 
     return (StatusCode::CREATED, Json(paste))
 }
 
 async fn find_paste(
     Path(key): Path<String>,
-    Extension(state): Extension<SharedState>,
+    Extension(state): Extension<DynStorer>,
 ) -> Result<impl IntoResponse, StatusCode>  {
     
     if let Ok(paste) = state.get(key).await {
@@ -74,7 +77,7 @@ async fn find_paste(
 
 async fn delete_paste(
     Path(key): Path<String>,
-    Extension(state): Extension<SharedState>,
+    Extension(state): Extension<DynStorer>,
 ) -> Result<impl IntoResponse, StatusCode>  {
 
     if let Ok(paste) = state.delete(key).await {
@@ -86,7 +89,8 @@ async fn delete_paste(
 }
 
 
-type  SharedState = Arc<RwLock<dyn db::Storer>>;
+// type  SharedState = Arc<RwLock<dyn db::Storer>>;
+type DynStorer = Arc<dyn db::Storer + Send + Sync>;
 
 
 #[cfg(test)]
