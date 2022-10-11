@@ -29,16 +29,14 @@ async fn main() {
 }
 
 fn create_app() -> Router {
-    // let shared_state = SharedState::default();
-    // let shared_state = Arc::new(db::InMemory::default());
-    let paste_repo = Arc::new(db::InMemory::default()) as DynStorer;
+    let paste_store = Arc::new(db::InMemory::default()) as DynStorer;
 
     let app = Router::new()
         .route("/", get(root))
         .route("/api/paste", post(create_paste))
         .route("/api/paste/:key", get(find_paste))
         .route("/api/paste/:key", delete(delete_paste))
-        .layer(Extension(paste_repo))
+        .layer(Extension(paste_store))
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());
     return app
@@ -51,15 +49,14 @@ async fn root() -> &'static str {
 async fn create_paste(
     Json(payload): Json<models::CreatePaste>,
     Extension(state): Extension<DynStorer>,
-) -> impl IntoResponse  {
+) -> Result<impl IntoResponse, StatusCode > {
 
     let paste = models::Paste::new(payload.key, payload.text, payload.expires);
-    match state.create(paste.clone()).await {
-        Ok(()) => {} ,
-        Err(error) => panic!("Problem creating paste: {:?}", error),
-    };
-
-    return (StatusCode::CREATED, Json(paste))
+    if let Ok(paste) = state.create(paste.clone()).await {
+        return Ok((StatusCode::CREATED, Json(paste)))
+    } else {
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
 }
 
 async fn find_paste(
@@ -89,7 +86,6 @@ async fn delete_paste(
 }
 
 
-// type  SharedState = Arc<RwLock<dyn db::Storer>>;
 type DynStorer = Arc<dyn db::Storer + Send + Sync>;
 
 
