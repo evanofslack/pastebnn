@@ -4,15 +4,15 @@ use axum::{routing::{get, post, delete},
     extract::{Extension, Path},
     Json, Router};
 use std::{
-    collections::HashMap,
     net::SocketAddr,
-    sync::{Arc, RwLock},
+    sync::Arc,
 };
 use tower_http::{cors::CorsLayer,trace::TraceLayer};
 use tracing_subscriber;
 use tracing::debug;
 
 mod models;
+mod db;
 
 #[tokio::main]
 async fn main() {
@@ -29,14 +29,14 @@ async fn main() {
 }
 
 fn create_app() -> Router {
-    let shared_state = SharedState::default();
+    let paste_store = Arc::new(db::InMemory::default()) as DynStorer;
 
     let app = Router::new()
         .route("/", get(root))
         .route("/api/paste", post(create_paste))
         .route("/api/paste/:key", get(find_paste))
         .route("/api/paste/:key", delete(delete_paste))
-        .layer(Extension(shared_state))
+        .layer(Extension(paste_store))
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());
     return app
@@ -48,25 +48,25 @@ async fn root() -> &'static str {
 
 async fn create_paste(
     Json(payload): Json<models::CreatePaste>,
-    Extension(state): Extension<SharedState>,
-) -> impl IntoResponse  {
+    Extension(state): Extension<DynStorer>,
+) -> Result<impl IntoResponse, StatusCode > {
 
     let paste = models::Paste::new(payload.key, payload.text, payload.expires);
-
-    state.write().unwrap().db.insert(paste.key.clone(), paste.clone());
-
-    return (StatusCode::CREATED, Json(paste))
+    if let Ok(paste) = state.create(paste.clone()).await {
+        return Ok((StatusCode::CREATED, Json(paste)))
+    } else {
+        return Err(StatusCode::INTERNAL_SERVER_ERROR);
+    }
 }
 
 async fn find_paste(
     Path(key): Path<String>,
-    Extension(state): Extension<SharedState>,
+    Extension(state): Extension<DynStorer>,
 ) -> Result<impl IntoResponse, StatusCode>  {
+    
+    if let Ok(paste) = state.get(key).await {
+        return Ok(Json(paste.clone()));
 
-    let db = &state.read().unwrap().db;
-
-    if let Some(value) = db.get(&key) {
-        return Ok(Json(value.clone()));
     } else {
         return Err(StatusCode::NOT_FOUND);
     }
@@ -74,26 +74,20 @@ async fn find_paste(
 
 async fn delete_paste(
     Path(key): Path<String>,
-    Extension(state): Extension<SharedState>,
+    Extension(state): Extension<DynStorer>,
 ) -> Result<impl IntoResponse, StatusCode>  {
 
-    // let db = &state.write().unwrap().db;
-    // if let Some(value) = db.remove(&key){
+    if let Ok(paste) = state.delete(key).await {
+        return Ok(Json(paste.clone()));
 
-    if let Some(value) = &state.write().unwrap().db.remove(&key) {
-        return Ok(Json(value.clone()));
     } else {
         return Err(StatusCode::NOT_FOUND);
     }
 }
 
 
-#[derive(Default)]
-struct AppState {
-    db: HashMap<String, models::Paste>
-}
+type DynStorer = Arc<dyn db::Storer + Send + Sync>;
 
-type SharedState = Arc<RwLock<AppState>>;
 
 #[cfg(test)]
 mod tests {
