@@ -29,7 +29,8 @@ async fn main() {
 }
 
 fn create_app() -> Router {
-    let shared_state = SharedState::default();
+    // let shared_state = SharedState::default();
+    let shared_state = Arc::new(db::InMemory::default());
 
     let app = Router::new()
         .route("/", get(root))
@@ -46,13 +47,14 @@ async fn root() -> &'static str {
     "hello world"
 }
 
+#[axum_macros::debug_handler]
 async fn create_paste(
     Json(payload): Json<models::CreatePaste>,
     Extension(state): Extension<SharedState>,
 ) -> impl IntoResponse  {
 
     let paste = models::Paste::new(payload.key, payload.text, payload.expires);
-    state.write().unwrap().create(paste.clone());
+    let res = state.write().unwrap().create(paste.clone()).await;
 
     return (StatusCode::CREATED, Json(paste))
 }
@@ -62,20 +64,12 @@ async fn find_paste(
     Extension(state): Extension<SharedState>,
 ) -> Result<impl IntoResponse, StatusCode>  {
     
-
-    if let Ok(paste) = state.write().unwrap().get(key) {
+    if let Ok(paste) = state.get(key).await {
         return Ok(Json(paste.clone()));
 
     } else {
         return Err(StatusCode::NOT_FOUND);
     }
-    // let db = &state.read().unwrap().db;
-
-    // if let Some(value) = db.get(&key) {
-    //     return Ok(Json(value.clone()));
-    // } else {
-    //     return Err(StatusCode::NOT_FOUND);
-    // }
 }
 
 async fn delete_paste(
@@ -83,33 +77,17 @@ async fn delete_paste(
     Extension(state): Extension<SharedState>,
 ) -> Result<impl IntoResponse, StatusCode>  {
 
-    // let db = &state.write().unwrap().db;
-    // if let Some(value) = db.remove(&key){
-
-    // if let Some(value) = &state.write().unwrap().db.remove(&key) {
-    //     return Ok(Json(value.clone()));
-    // } else {
-    //     return Err(StatusCode::NOT_FOUND);
-    // }
-
-    if let Ok(paste) = state.write().unwrap().delete(key) {
+    if let Ok(paste) = state.delete(key).await {
         return Ok(Json(paste.clone()));
 
     } else {
         return Err(StatusCode::NOT_FOUND);
     }
-
 }
 
 
-// #[derive(Default)]
-// struct AppState {
-//     db: HashMap<String, models::Paste>
-// }
+type  SharedState = Arc<RwLock<dyn db::Storer>>;
 
-
-type SharedState = Arc<RwLock<dyn db::PasteService>>;
-// type SharedState = Arc<RwLock<AppState>>;
 
 #[cfg(test)]
 mod tests {
