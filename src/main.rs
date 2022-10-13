@@ -1,16 +1,16 @@
-use axum::{routing::{get, post, delete, get_service},
+use axum::{routing::{get, post, delete},
     http::StatusCode,
     response::IntoResponse,
     extract::{Extension, Path},
-    Json, Router};
+    Json, Router
+};
+// use axum_extra::routing::SpaRouter;
 use std::{
     net::SocketAddr,
     sync::Arc,
-    io,
 };
 use tower_http::{
     cors::CorsLayer,trace::TraceLayer,
-    services::ServeDir,
 };
     
 use tracing_subscriber;
@@ -34,23 +34,16 @@ async fn main() {
 }
 
 fn create_app() -> Router {
-    let frontend: Router = Router::new()
-    .fallback(get_service(ServeDir::new("./public")).handle_error(handle_error))
-    .layer(TraceLayer::new_for_http());
-
     let paste_store = Arc::new(db::InMemory::default()) as DynStorer;
 
-    let backend: Router = Router::new()
-        // .route("/", get(root))
+    let app: Router = Router::new()
+        .route("/hello", get(root))
         .route("/api/paste", post(create_paste))
         .route("/api/paste/:key", get(find_paste))
         .route("/api/paste/:key", delete(delete_paste))
         .layer(Extension(paste_store))
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());
-
-    let app = Router::new().merge(frontend).merge(backend);
-
     return app
 }
 
@@ -97,15 +90,7 @@ async fn delete_paste(
     }
 }
 
-
 type DynStorer = Arc<dyn db::Storer + Send + Sync>;
-
-async fn handle_error(_err: io::Error) -> impl IntoResponse {
-    (
-        StatusCode::INTERNAL_SERVER_ERROR,
-        "Something went wrong accessing static files...",
-    )
-}
 
 #[cfg(test)]
 mod tests {
@@ -122,7 +107,7 @@ mod tests {
         let app = create_app();
 
         let resp = app
-            .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
+            .oneshot(Request::builder().uri("/hello").body(Body::empty()).unwrap())
             .await
             .unwrap();
         
