@@ -2,12 +2,17 @@ use axum::{routing::{get, post, delete},
     http::StatusCode,
     response::IntoResponse,
     extract::{Extension, Path},
-    Json, Router};
+    Json, Router
+};
+// use axum_extra::routing::SpaRouter;
 use std::{
     net::SocketAddr,
     sync::Arc,
 };
-use tower_http::{cors::CorsLayer,trace::TraceLayer};
+use tower_http::{
+    cors::CorsLayer,trace::TraceLayer,
+};
+    
 use tracing_subscriber;
 use tracing::debug;
 
@@ -31,8 +36,8 @@ async fn main() {
 fn create_app() -> Router {
     let paste_store = Arc::new(db::InMemory::default()) as DynStorer;
 
-    let app = Router::new()
-        .route("/", get(root))
+    let app: Router = Router::new()
+        .route("/hello", get(root))
         .route("/api/paste", post(create_paste))
         .route("/api/paste/:key", get(find_paste))
         .route("/api/paste/:key", delete(delete_paste))
@@ -85,9 +90,7 @@ async fn delete_paste(
     }
 }
 
-
 type DynStorer = Arc<dyn db::Storer + Send + Sync>;
-
 
 #[cfg(test)]
 mod tests {
@@ -104,7 +107,7 @@ mod tests {
         let app = create_app();
 
         let resp = app
-            .oneshot(Request::builder().uri("/").body(Body::empty()).unwrap())
+            .oneshot(Request::builder().uri("/hello").body(Body::empty()).unwrap())
             .await
             .unwrap();
         
