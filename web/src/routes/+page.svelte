@@ -5,12 +5,13 @@
 
     let text = ""
     let key = ""
+    let expires = 0
     let placeholder = "big-fat-lobster"
 
     async function handleSubmit() {
         let baseURL = "http://localhost:3000/api/paste"
 
-        let paste: CreatePaste = {text: text, key: key ? key : placeholder};
+        let paste: CreatePaste = {text: text, key: key ? key : placeholder, seconds_until_expire: expires};
 
         let requestOptions = {
             method: 'POST',

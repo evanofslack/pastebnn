@@ -4,7 +4,6 @@ use axum::{routing::{get, post, delete},
     extract::{Extension, Path},
     Json, Router
 };
-// use axum_extra::routing::SpaRouter;
 use std::{
     net::SocketAddr,
     sync::Arc,
@@ -14,7 +13,6 @@ use tower_http::{
 };
     
 use tracing_subscriber;
-use tracing::debug;
 
 mod models;
 mod db;
@@ -24,7 +22,6 @@ async fn main() {
     tracing_subscriber::fmt::init();
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-    debug!("listening on {}", addr);
     println!("listening on {}", addr);
 
     axum::Server::bind(&addr)
@@ -41,6 +38,7 @@ fn create_app() -> Router {
         .route("/api/paste", post(create_paste))
         .route("/api/paste/:key", get(find_paste))
         .route("/api/paste/:key", delete(delete_paste))
+        .route("/api/clean", get(remove_expired))
         .layer(Extension(paste_store))
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());
@@ -56,7 +54,7 @@ async fn create_paste(
     Extension(state): Extension<DynStorer>,
 ) -> Result<impl IntoResponse, StatusCode > {
 
-    let paste = models::Paste::new(payload.key, payload.text, payload.expires);
+    let paste = models::Paste::new(payload.key, payload.text, payload.seconds_until_expire);
     if let Ok(paste) = state.create(paste.clone()).await {
         return Ok((StatusCode::CREATED, Json(paste)))
     } else {
@@ -82,12 +80,29 @@ async fn delete_paste(
     Extension(state): Extension<DynStorer>,
 ) -> Result<impl IntoResponse, StatusCode>  {
 
-    if let Ok(paste) = state.delete(key).await {
+    if let Ok(paste) = state.delete(&key).await {
         return Ok(Json(paste.clone()));
 
     } else {
         return Err(StatusCode::NOT_FOUND);
     }
+}
+
+async fn remove_expired(Extension(state): Extension<DynStorer>) -> Result<impl IntoResponse, StatusCode> {
+    let expired_pastes = state.get_expired().await;
+    for paste in expired_pastes.iter() {
+        let res = state.delete(&paste.key).await;
+        match res {
+            Ok(paste) => {
+                println!("deleted paste: {}", paste.key);
+            }
+            Err(err) => {
+                println!("error: {}", err);
+                // return Err(StatusCode::INTERNAL_SERVER_ERROR)
+            },
+        };
+    }
+    return Ok(StatusCode::OK)
 }
 
 type DynStorer = Arc<dyn db::Storer + Send + Sync>;
