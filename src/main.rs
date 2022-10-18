@@ -45,7 +45,7 @@ async fn main() {
                 println!("error: {}", error)
             }
         },
-        res = remove_periodically(paste_store, 60) => {
+        res = remove_periodically(paste_store, 5) => {
             if let Err(error) = res {
                 println!("error: {}", error)
             }
@@ -157,8 +157,8 @@ mod tests {
 
     #[tokio::test]
     async fn root() {
-        let paste_store = Arc::new(db::InMemory::default()) as DynStorer;
-        let app = create_app(paste_store);
+        let mock_store = Arc::new(db::InMemory::default()) as DynStorer;
+        let app = create_app(mock_store);
 
         let resp = app
             .oneshot(Request::builder().uri("/hello").body(Body::empty()).unwrap())
