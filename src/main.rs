@@ -7,12 +7,15 @@ use axum::{routing::{get, post, delete},
 use std::{
     net::SocketAddr,
     sync::Arc,
+    time::Duration,
+    io::Error,
 };
 use tower_http::{
     cors::CorsLayer,trace::TraceLayer,
 };
     
 use tracing_subscriber;
+use tokio::time; 
 
 mod models;
 mod db;
@@ -21,25 +24,45 @@ mod db;
 async fn main() {
     tracing_subscriber::fmt::init();
 
+    let paste_store = Arc::new(db::InMemory::default()) as DynStorer;
+
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
     println!("listening on {}", addr);
 
-    axum::Server::bind(&addr)
-        .serve(create_app().into_make_service())
-        .await
-        .unwrap();
+    let service = create_app(paste_store.clone()).into_make_service();
+
+    let server = axum::Server::bind(&addr)
+        .serve(service)
+        .with_graceful_shutdown(async {
+            tokio::signal::ctrl_c()
+                .await
+                .expect("failed to listen to ctrl-c");
+        });
+
+    tokio::select! {
+        res = server => {
+            if let Err(error) = res {
+                println!("error: {}", error)
+            }
+        },
+        res = remove_periodically(paste_store, 5) => {
+            if let Err(error) = res {
+                println!("error: {}", error)
+            }
+        }
+    }
+
 }
 
-fn create_app() -> Router {
-    let paste_store = Arc::new(db::InMemory::default()) as DynStorer;
+fn create_app(storer: DynStorer) -> Router {
 
     let app: Router = Router::new()
         .route("/hello", get(root))
         .route("/api/paste", post(create_paste))
         .route("/api/paste/:key", get(find_paste))
         .route("/api/paste/:key", delete(delete_paste))
-        .route("/api/clean", get(remove_expired))
-        .layer(Extension(paste_store))
+        .route("/api/clean", get(delete_expired))
+        .layer(Extension(storer))
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());
     return app
@@ -88,21 +111,36 @@ async fn delete_paste(
     }
 }
 
-async fn remove_expired(Extension(state): Extension<DynStorer>) -> Result<impl IntoResponse, StatusCode> {
-    let expired_pastes = state.get_expired().await;
+async fn delete_expired(Extension(state): Extension<DynStorer>) -> Result<impl IntoResponse, StatusCode> {
+    remove_expired(state).await.expect("no err currently");
+    return Ok(StatusCode::OK)
+}
+
+async fn remove_expired(storer: DynStorer) -> Result<(), Error> {
+    println!("removing expired");
+    let expired_pastes = storer.get_expired().await;
     for paste in expired_pastes.iter() {
-        let res = state.delete(&paste.key).await;
+        let res = storer.delete(&paste.key).await;
         match res {
             Ok(paste) => {
                 println!("deleted paste: {}", paste.key);
             }
             Err(err) => {
                 println!("error: {}", err);
-                // return Err(StatusCode::INTERNAL_SERVER_ERROR)
-            },
+            }
         };
     }
-    return Ok(StatusCode::OK)
+    return Ok(())
+}
+
+async fn remove_periodically(storer: DynStorer, period_seconds: u64) -> Result<(), Error> {
+    let mut interval = time::interval(Duration::from_secs(period_seconds));
+
+    loop {
+        println!("removing");
+        interval.tick().await;
+        remove_expired(storer.clone()).await?
+    }
 }
 
 type DynStorer = Arc<dyn db::Storer + Send + Sync>;
@@ -119,7 +157,8 @@ mod tests {
 
     #[tokio::test]
     async fn root() {
-        let app = create_app();
+        let mock_store = Arc::new(db::InMemory::default()) as DynStorer;
+        let app = create_app(mock_store);
 
         let resp = app
             .oneshot(Request::builder().uri("/hello").body(Body::empty()).unwrap())
