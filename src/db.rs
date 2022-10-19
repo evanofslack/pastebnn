@@ -12,6 +12,7 @@ pub trait Storer {
     async fn create(&self, paste: models::Paste) -> Result<(), &'static str>;
     async fn delete(&self, key: &String) -> Result<models::Paste, &'static str>;
     async fn get_expired(&self) -> Vec<models::Paste>;
+    async fn delete_expired(&self) -> Result<(), &'static str>;
 }
 
 #[derive(Default)]
@@ -39,7 +40,7 @@ impl Storer for InMemory {
         if let Some(paste) = self.db.write().unwrap().remove(key) {
             return Ok(paste)
         } else {
-            return Err("no paste found")
+            return Err("Paste not found")
         }
     }
     async fn get_expired(&self) -> Vec<models::Paste>{
@@ -58,5 +59,12 @@ impl Storer for InMemory {
             }
         }
         return expired
+    }
+    async fn delete_expired(&self) -> Result<(), &'static str>{
+        let expired = self.get_expired().await;
+        for paste in expired.iter() {
+            self.delete(&paste.key).await?;
+        }
+        return Ok(())
     }
 }
