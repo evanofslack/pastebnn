@@ -24,11 +24,17 @@ pub struct InMemory {
 #[async_trait]
 impl Storer for InMemory {
     async fn get(&self, key: String) -> Result<models::Paste, &'static str> {
-        if let Some(paste) = self.db.write().unwrap().get(&key) {
-            return Ok(paste.clone())
+
+        let found_paste: models::Paste;
+        if let Some(paste) = self.db.read().unwrap().get(&key) {
+            found_paste = paste.clone();
         } else {
             return Err("no paste found")
         }
+        if found_paste.burn_on_read {
+            self.delete(&found_paste.key).await?;
+        }
+        return Ok(found_paste)
     }
 
     async fn create(&self, paste: models::Paste) -> Result<(), &'static str>{
@@ -51,7 +57,7 @@ impl Storer for InMemory {
 
         let mut expired: Vec<models::Paste> = Vec::new();
 
-        for (_, paste) in self.db.write().unwrap().iter() {
+        for (_, paste) in self.db.read().unwrap().iter() {
             if let Some(expires) = paste.expires {
                 if expires <= now {
                     expired.push(paste.to_owned())
