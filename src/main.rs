@@ -5,13 +5,11 @@ use axum::{
 use std::{
     net::SocketAddr,
     sync::Arc,
-    time::Duration,
 };
 use tower_http::{
     cors::CorsLayer,trace::TraceLayer,
 };
     
-use tokio::time; 
 mod models;
 mod db;
 mod handler;
@@ -42,7 +40,7 @@ async fn main() {
                 tracing::error!("error: {}", error)
             }
         },
-        res = remove_periodically(paste_store, 60) => {
+        res = paste_store.delete_periodically(60) => {
             if let Err(error) = res {
                 tracing::error!("error: {}", error)
             }
@@ -58,15 +56,6 @@ fn create_app(storer: DynStorer) -> Router {
         .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http());
     return app
-}
-
-async fn remove_periodically(storer: DynStorer, period_seconds: u64) -> Result<(), &'static str> {
-    let mut interval = time::interval(Duration::from_secs(period_seconds));
-
-    loop {
-        interval.tick().await;
-        storer.delete_expired().await?
-    }
 }
 
 type DynStorer = Arc<dyn db::Storer + Send + Sync>;
