@@ -6,7 +6,6 @@ use std::{
     net::SocketAddr,
     sync::Arc,
     time::Duration,
-    io::Error,
 };
 use tower_http::{
     cors::CorsLayer,trace::TraceLayer,
@@ -62,30 +61,12 @@ fn create_app(storer: DynStorer) -> Router {
     return app
 }
 
-async fn remove_expired(storer: DynStorer) -> Result<(), Error> {
-    println!("removing expired");
-    let expired_pastes = storer.get_expired().await;
-    for paste in expired_pastes.iter() {
-        let res = storer.delete(&paste.key).await;
-        match res {
-            Ok(paste) => {
-                println!("deleted paste: {}", paste.key);
-            }
-            Err(err) => {
-                println!("error: {}", err);
-            }
-        };
-    }
-    return Ok(())
-}
-
-async fn remove_periodically(storer: DynStorer, period_seconds: u64) -> Result<(), Error> {
+async fn remove_periodically(storer: DynStorer, period_seconds: u64) -> Result<(), &'static str> {
     let mut interval = time::interval(Duration::from_secs(period_seconds));
 
     loop {
-        println!("removing");
         interval.tick().await;
-        remove_expired(storer.clone()).await?
+        storer.delete_expired().await?
     }
 }
 
