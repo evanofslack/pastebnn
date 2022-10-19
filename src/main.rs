@@ -11,21 +11,20 @@ use tower_http::{
     cors::CorsLayer,trace::TraceLayer,
 };
     
-use tracing_subscriber;
 use tokio::time; 
-
 mod models;
 mod db;
 mod handler;
+mod logger;
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt::init();
+    logger::setup();
 
     let paste_store = Arc::new(db::InMemory::default()) as DynStorer;
 
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-    println!("listening on {}", addr);
+    tracing::debug!("listening on {}", addr);
 
     let service = create_app(paste_store.clone()).into_make_service();
 
@@ -40,12 +39,12 @@ async fn main() {
     tokio::select! {
         res = server => {
             if let Err(error) = res {
-                println!("error: {}", error)
+                tracing::error!("error: {}", error)
             }
         },
         res = remove_periodically(paste_store, 60) => {
             if let Err(error) = res {
-                println!("error: {}", error)
+                tracing::error!("error: {}", error)
             }
         }
     }
