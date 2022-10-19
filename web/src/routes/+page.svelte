@@ -1,17 +1,19 @@
 
 <script lang="ts">
+    import { goto } from '$app/navigation';
     import type {Paste, CreatePaste} from "../../interfaces"
     import {DISPLAY_URL} from "../constants"
 
     let text = ""
     let key = ""
-    let expires = 0
+    let expires = 60
+    let burn = true
     let placeholder = "big-fat-lobster"
 
     async function handleSubmit() {
         let baseURL = "http://localhost:3000/api/paste"
 
-        let paste: CreatePaste = {text: text, key: key ? key : placeholder, seconds_until_expire: expires};
+        let paste: CreatePaste = {text: text, key: key ? key : placeholder, seconds_until_expire: expires, burn_on_read: burn};
 
         let requestOptions = {
             method: 'POST',
@@ -23,7 +25,7 @@
         let resp = await res.text();
 
         // redirect to paste url
-        window.location.replace("/" + paste.key)
+        goto(`/${paste.key}`, { replaceState: false }) 
 
 	}
 </script>

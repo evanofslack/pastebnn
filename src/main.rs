@@ -43,7 +43,7 @@ async fn main() {
                 println!("error: {}", error)
             }
         },
-        res = remove_periodically(paste_store, 5) => {
+        res = remove_periodically(paste_store, 60) => {
             if let Err(error) = res {
                 println!("error: {}", error)
             }

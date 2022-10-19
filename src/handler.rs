@@ -18,7 +18,7 @@ async fn create_paste(
     Extension(state): Extension<DynStorer>,
 ) -> Result<impl IntoResponse, StatusCode > {
 
-    let paste = models::Paste::new(payload.key, payload.text, payload.seconds_until_expire);
+    let paste = models::Paste::new(payload.key, payload.text, payload.seconds_until_expire, payload.burn_on_read);
     if let Ok(paste) = state.create(paste.clone()).await {
         return Ok((StatusCode::CREATED, Json(paste)))
     } else {
@@ -26,7 +26,7 @@ async fn create_paste(
     }
 }
 
-async fn find_paste(
+async fn get_paste(
     Path(key): Path<String>,
     Extension(state): Extension<DynStorer>,
 ) -> Result<impl IntoResponse, StatusCode>  {
@@ -56,7 +56,7 @@ pub fn routes() -> Router {
     let router: Router = Router::new()
         .route("/hello", get(root))
         .route("/api/paste", post(create_paste))
-        .route("/api/paste/:key", get(find_paste))
+        .route("/api/paste/:key", get(get_paste))
         .route("/api/paste/:key", delete(delete_paste));
     
     return router
