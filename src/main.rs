@@ -21,7 +21,7 @@ type DynStorer = Arc<dyn db::Storer + Send + Sync>;
 async fn main() {
     let port = 3000;
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
-    let paste_store = Arc::new(db::InMemory::default()) as DynStorer;
+    let paste_store = Arc::new(db::inmemory::InMemory::default()) as DynStorer;
 
     let app = create_app(paste_store.clone());
 
@@ -74,7 +74,7 @@ mod tests {
 
     #[tokio::test]
     async fn root() {
-        let mock_store = Arc::new(db::InMemory::default()) as DynStorer;
+        let mock_store = Arc::new(db::inmemory::InMemory::default()) as DynStorer;
         let app = create_app(mock_store);
 
         let resp = app
