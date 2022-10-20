@@ -9,23 +9,45 @@ use std::{
 use tower_http::{
     cors::CorsLayer,trace::TraceLayer,
 };
+use clap::Parser;
     
 mod models;
 mod db;
 mod handlers;
 mod logger;
 
+#[derive(Parser, Debug)]
+#[clap(
+    version, author = env!("CARGO_PKG_HOMEPAGE"), about,
+)]
+pub struct Settings {
+    // Listening port of http server
+    #[clap(long, env("APP_PORT"), default_value("8080"))]
+    pub port: u16,
+    // Listening host of http server
+    #[clap(long, env("APP_HOST"), default_value("0.0.0.0"))]
+    pub host: String,
+    // Minimal log level (same syntax than RUST_LOG)
+    #[clap(long, env("APP_LOG_LEVEL"), default_value("info"))]
+    pub log_level: String,
+    #[clap(long, env("APP_REMOTE_URL"))]
+    pub remote_url: Option<String>,
+}
+
 type DynStorer = Arc<dyn db::Storer + Send + Sync>;
 
 #[tokio::main]
 async fn main() {
-    let port = 3000;
-    let addr = SocketAddr::from(([127, 0, 0, 1], port));
-    let paste_store = Arc::new(db::inmemory::InMemory::default()) as DynStorer;
+    let settings = Settings::parse();
+    let _remote_url = settings.remote_url.unwrap_or_else(|| format!("http://{}:{}/", settings.host, settings.port));
+    let addr = format!("{}:{}", settings.host, settings.port).parse::<SocketAddr>().expect("failed to parse socket address");
 
+    let paste_store = Arc::new(db::inmemory::InMemory::default()) as DynStorer;
     let app = create_app(paste_store.clone());
 
-    tracing::debug!("listening on {}", addr);
+    logger::setup(settings.log_level);
+
+    tracing::info!("listening on {}", addr);
     let server = axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .with_graceful_shutdown(async {
@@ -50,7 +72,6 @@ async fn main() {
 }
 
 fn create_app(storer: DynStorer) -> Router {
-    logger::setup();
 
     let app = Router::new()
     .merge(handlers::pastes::create_router())
