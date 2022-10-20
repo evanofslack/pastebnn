@@ -12,7 +12,7 @@ pub struct CreatePaste {
 }
 
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq)]
 pub struct Paste {
     pub id: Uuid,
     pub created: u128,         // milliseconds since epoch

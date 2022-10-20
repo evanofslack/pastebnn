@@ -13,6 +13,7 @@ pub trait Storer: Sync {
     async fn create(&self, paste: models::Paste) -> Result<(), &'static str>;
     async fn delete(&self, key: &String) -> Result<models::Paste, &'static str>;
     async fn get_expired(&self) -> Vec<models::Paste>;
+
     async fn delete_expired(&self) -> Result<(), &'static str> {
         for paste in self.get_expired().await.iter() {
             self.delete(&paste.key).await?;
@@ -42,7 +43,7 @@ impl Storer for InMemory {
         if let Some(paste) = self.db.read().unwrap().get(&key) {
             found_paste = paste.clone();
         } else {
-            return Err("no paste found")
+            return Err("paste not found")
         }
         if found_paste.burn_on_read {
             self.delete(&found_paste.key).await?;
@@ -59,7 +60,7 @@ impl Storer for InMemory {
         if let Some(paste) = self.db.write().unwrap().remove(key) {
             return Ok(paste)
         } else {
-            return Err("Paste not found")
+            return Err("paste not found")
         }
     }
     async fn get_expired(&self) -> Vec<models::Paste>{
@@ -85,5 +86,36 @@ impl Storer for InMemory {
             self.delete(&paste.key).await?;
         }
         return Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn create_and_get() {
+        let db = InMemory::default();
+        let paste = models::Paste::new(String::from("key"), String::from("text"), None, true);
+        db.create(paste.clone()).await.expect("should create new paste");
+        let resp = db.get(paste.clone().key).await.expect("should return paste");
+
+        assert_eq!(paste, resp);
+    }
+
+    #[tokio::test]
+    async fn delete() {
+        let db = InMemory::default();
+        let paste = models::Paste::new(String::from("key"), String::from("text"), None, true);
+        db.create(paste.clone()).await.expect("should create new paste");
+
+        let resp = db.delete(&paste.clone().key).await.expect("should return paste");
+        assert_eq!(paste, resp);
+
+        let resp = db.get(paste.clone().key).await;
+        assert!(resp.is_err());
+        if let Err(msg) = resp {
+            assert_eq!(msg, "pastes not found")
+        }
     }
 }

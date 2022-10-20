@@ -15,6 +15,8 @@ mod db;
 mod handler;
 mod logger;
 
+type DynStorer = Arc<dyn db::Storer + Send + Sync>;
+
 #[tokio::main]
 async fn main() {
     logger::setup();
@@ -58,7 +60,6 @@ fn create_app(storer: DynStorer) -> Router {
     return app
 }
 
-type DynStorer = Arc<dyn db::Storer + Send + Sync>;
 
 #[cfg(test)]
 mod tests {
