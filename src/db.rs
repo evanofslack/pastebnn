@@ -106,10 +106,25 @@ mod tests {
     #[tokio::test]
     async fn delete() {
         let db = InMemory::default();
-        let paste = models::Paste::new(String::from("key"), String::from("text"), None, true);
+        let paste = models::Paste::new(String::from("key"), String::from("text"), None, false);
         db.create(paste.clone()).await.expect("should create new paste");
 
         let resp = db.delete(&paste.clone().key).await.expect("should return paste");
+        assert_eq!(paste, resp);
+
+        let resp = db.get(paste.clone().key).await;
+        assert!(resp.is_err());
+        if let Err(msg) = resp {
+            assert_eq!(msg, "paste not found")
+        }
+    }
+
+    #[tokio::test]
+    async fn burn_on_read() {
+        let db = InMemory::default();
+        let paste = models::Paste::new(String::from("key"), String::from("text"), None, true);
+        db.create(paste.clone()).await.expect("should create new paste");
+        let resp = db.get(paste.clone().key).await.expect("should return paste");
         assert_eq!(paste, resp);
 
         let resp = db.get(paste.clone().key).await;
