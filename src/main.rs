@@ -21,15 +21,16 @@ mod logger;
     version, author = env!("CARGO_PKG_HOMEPAGE"), about,
 )]
 pub struct Settings {
-    // Listening port of http server
+    /// Listening port of http server
     #[clap(long, env("APP_PORT"), default_value("8080"))]
     pub port: u16,
-    // Listening host of http server
+    /// Listening host of http server
     #[clap(long, env("APP_HOST"), default_value("0.0.0.0"))]
     pub host: String,
-    // Minimal log level (same syntax than RUST_LOG)
+    /// Log level (same syntax as RUST_LOG)
     #[clap(long, env("APP_LOG_LEVEL"), default_value("info"))]
     pub log_level: String,
+    /// Full URL of server
     #[clap(long, env("APP_REMOTE_URL"))]
     pub remote_url: Option<String>,
 }
