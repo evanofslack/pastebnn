@@ -115,7 +115,7 @@ mod tests {
         let resp = db.get(paste.clone().key).await;
         assert!(resp.is_err());
         if let Err(msg) = resp {
-            assert_eq!(msg, "pastes not found")
+            assert_eq!(msg, "paste not found")
         }
     }
 }
