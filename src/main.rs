@@ -12,24 +12,22 @@ use tower_http::{
     
 mod models;
 mod db;
-mod handler;
+mod handlers;
 mod logger;
 
 type DynStorer = Arc<dyn db::Storer + Send + Sync>;
 
 #[tokio::main]
 async fn main() {
-    logger::setup();
-
+    let port = 3000;
+    let addr = SocketAddr::from(([127, 0, 0, 1], port));
     let paste_store = Arc::new(db::InMemory::default()) as DynStorer;
 
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
+    let app = create_app(paste_store.clone());
+
     tracing::debug!("listening on {}", addr);
-
-    let service = create_app(paste_store.clone()).into_make_service();
-
     let server = axum::Server::bind(&addr)
-        .serve(service)
+        .serve(app.into_make_service())
         .with_graceful_shutdown(async {
             tokio::signal::ctrl_c()
                 .await
@@ -52,11 +50,14 @@ async fn main() {
 }
 
 fn create_app(storer: DynStorer) -> Router {
+    logger::setup();
 
-    let app = handler::routes()
-        .layer(Extension(storer))
-        .layer(CorsLayer::permissive())
-        .layer(TraceLayer::new_for_http());
+    let app = Router::new()
+    .merge(handlers::pastes::create_router())
+    .merge(handlers::status::create_router())
+    .layer(Extension(storer))
+    .layer(CorsLayer::permissive())
+    .layer(TraceLayer::new_for_http());
     return app
 }
 
@@ -69,7 +70,7 @@ mod tests {
         http::{Request, StatusCode},
         body::Body,
     };
-    use hyper::body;
+    // use hyper::body;
 
     #[tokio::test]
     async fn root() {
@@ -77,14 +78,14 @@ mod tests {
         let app = create_app(mock_store);
 
         let resp = app
-            .oneshot(Request::builder().uri("/hello").body(Body::empty()).unwrap())
+            .oneshot(Request::builder().uri("/ping").body(Body::empty()).unwrap())
             .await
             .unwrap();
         
-        assert_eq!(resp.status(), StatusCode::OK);
+        assert_eq!(resp.status(), StatusCode::NO_CONTENT);
 
-        let body = body::to_bytes(resp.into_body()).await.unwrap();
-        assert_eq!(&body[..], b"hello world");
+        // let body = body::to_bytes(resp.into_body()).await.unwrap();
+        // assert_eq!(&body[..], b"hello world");
     }
 }
 

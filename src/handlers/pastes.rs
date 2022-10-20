@@ -1,3 +1,4 @@
+
 use axum::{routing::{get, post, delete},
     http::StatusCode,
     response::IntoResponse,
@@ -5,8 +6,8 @@ use axum::{routing::{get, post, delete},
     Json, Router
 };
 
-use super::models;
-use super::DynStorer;
+use crate::models;
+use crate::DynStorer;
 
 
 async fn root() -> &'static str {
@@ -52,7 +53,7 @@ async fn delete_paste(
     }
 }
 
-pub fn routes() -> Router {
+pub fn create_router() -> Router {
     let router: Router = Router::new()
         .route("/hello", get(root))
         .route("/api/paste", post(create_paste))
