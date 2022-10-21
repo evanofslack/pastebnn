@@ -1,2 +1,9 @@
 # pastebnn
-a simple pastebin server written in rust
+
+a simple pastebin server written built rust and svelte
+
+### backend
+Axum, serde, clap
+
+### ui
+sveltkit, tailwind
