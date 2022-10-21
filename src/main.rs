@@ -28,7 +28,7 @@ pub struct Settings {
     #[clap(long, env("APP_HOST"), default_value("0.0.0.0"))]
     pub host: String,
     /// Log level (same syntax as RUST_LOG)
-    #[clap(long, env("APP_LOG_LEVEL"), default_value("info"))]
+    #[clap(long, env("APP_LOG_LEVEL"), default_value("debug"))]
     pub log_level: String,
     /// Full URL of server
     #[clap(long, env("APP_REMOTE_URL"))]
@@ -74,10 +74,9 @@ async fn main() {
 
 fn create_app(storer: DynStorer) -> Router {
 
-    let app = Router::new()
-    .merge(handlers::pastes::create_router())
-    .merge(handlers::status::create_router())
+    let app = handlers::pastes::create_router()
     .layer(Extension(storer))
+    .merge(handlers::status::create_router())
     .layer(CorsLayer::permissive())
     .layer(TraceLayer::new_for_http());
     return app
