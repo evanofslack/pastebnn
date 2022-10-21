@@ -31,11 +31,15 @@ async fn get_paste(
     Path(key): Path<String>,
     Extension(state): Extension<DynStorer>,
 ) -> Result<impl IntoResponse, StatusCode>  {
+
     
+    tracing::debug!("getting paste {}", key);
     if let Ok(paste) = state.get(key).await {
+        tracing::debug!("found paste");
         return Ok(Json(paste.clone()));
 
     } else {
+        tracing::debug!("could not find paste");
         return Err(StatusCode::NOT_FOUND);
     }
 }
@@ -58,7 +62,6 @@ pub fn create_router() -> Router {
         .route("/hello", get(root))
         .route("/api/paste", post(create_paste))
         .route("/api/paste/:key", get(get_paste))
-        .route("/api/paste/:key", delete(delete_paste));
-    
+        .route("/api/paste/:key", delete(delete_paste)); 
     return router
 }
