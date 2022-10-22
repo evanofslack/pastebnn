@@ -1,7 +1,6 @@
-
-use std::time::Duration;
-use tokio::time; 
 use async_trait::async_trait;
+use std::time::Duration;
+use tokio::time;
 
 use crate::models;
 pub mod inmemory;
@@ -17,10 +16,11 @@ pub trait Storer: Sync {
         for paste in self.get_expired().await.iter() {
             self.delete(&paste.key).await?;
         }
-        return Ok(())
+        return Ok(());
     }
     async fn delete_periodically(&self, period_seconds: u64) -> Result<(), &'static str> {
         let mut interval = time::interval(Duration::from_secs(period_seconds));
+        tracing::debug!("Deleting expired pastes every {} seconds", period_seconds);
         loop {
             interval.tick().await;
             self.delete_expired().await?
