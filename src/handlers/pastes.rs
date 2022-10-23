@@ -9,7 +9,7 @@ use axum::{
 use crate::models;
 use crate::DynStorer;
 
-async fn root() -> &'static str {
+async fn hello() -> &'static str {
     "hello world"
 }
 
@@ -57,7 +57,7 @@ async fn delete_paste(
 
 pub fn create_router() -> Router {
     let router: Router = Router::new()
-        .route("/hello", get(root))
+        .route("/hello", get(hello))
         .route("/api/paste", post(create_paste))
         .route("/api/paste/:key", get(get_paste))
         .route("/api/paste/:key", delete(delete_paste));
