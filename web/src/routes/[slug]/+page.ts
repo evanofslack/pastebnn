@@ -1,6 +1,6 @@
 import type { Page } from '@sveltejs/kit';
 import type { Paste } from '../../../interfaces';
-import { BASE_URL } from 'src/constants';
+import { BASE_URL } from '../../constants';
 
 /** @type {import('./$types').PageLoad} */
 export async function load({ params }: Page) {
