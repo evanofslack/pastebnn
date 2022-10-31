@@ -2,7 +2,6 @@
     import { goto } from '$app/navigation';
     import type {Paste, CreatePaste} from "../../interfaces"
     import {DISPLAY_URL} from "../constants"
-    import Select from 'svelte-select';
 
     const expire_times = [
         {value: 600,label: '10 min'},
