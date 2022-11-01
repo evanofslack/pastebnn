@@ -21,7 +21,7 @@ RUN npm run build
 
 
 FROM debian:buster-slim
-ARG APP=/usr/src/app
+ARG APP=/usr/src/app/pastebnn
 
 RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
@@ -32,10 +32,10 @@ ENV TZ=Etc/UTC \
 RUN groupadd $APP_USER \
     && useradd -g $APP_USER $APP_USER \
     && mkdir -p ${APP} \
-    && mkdir -p ${APP}/pastebnn/web/build
+    && mkdir -p ${APP}/web/build
 
-COPY --from=builder-backend /pastebnn/target/release/pastebnn ${APP}/pastebnn
-COPY --from=builder-frontend /pastebnn/build ${APP}/pastebnn/web/build
+COPY --from=builder-backend /pastebnn/target/release/pastebnn ${APP}
+COPY --from=builder-frontend /pastebnn/build ${APP}/web/build
 
 RUN chown -R $APP_USER:$APP_USER ${APP}
 
