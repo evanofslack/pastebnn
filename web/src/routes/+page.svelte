@@ -53,7 +53,7 @@
     <!-- expiration dropdown-->
     <div class="flex items-center mr-4">
         <p class="text-neutral-300/60 mr-1">expiration</p>
-        <select class="p-2" value={expires} placeholder={default_expire.label}>
+        <select class="p-2" bind:value={expires} placeholder={default_expire.label}>
             {#each expire_times as time}
                 <option value={time}>
                     {time.label}
