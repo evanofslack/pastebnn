@@ -1,11 +1,10 @@
-import type { Page } from '@sveltejs/kit';
+import type { LoadEvent } from '@sveltejs/kit';
 import type { Paste } from '../../../interfaces';
-import { BASE_URL } from '../../constants';
+import { APP_HOST, APP_PORT } from '../../constants';
 
-/** @type {import('./$types').PageLoad} */
-export async function load({ params }: Page) {
+export async function load({ fetch, params }: LoadEvent) {
 	const pasteID = params.slug;
-	const endpoint = BASE_URL + 'api/paste/' + pasteID;
+	const endpoint = `http://${APP_HOST}:${APP_PORT}/api/paste/${pasteID}`;
 	const res = await fetch(endpoint);
 	const paste: Paste = await res.json();
 	return { paste: paste };

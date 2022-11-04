@@ -1,7 +1,8 @@
 <script lang="ts">
     import { goto } from '$app/navigation';
-    import type {Paste, CreatePaste} from "../../interfaces"
-    import {DISPLAY_URL} from "../constants"
+    import type {CreatePaste} from "../../interfaces"
+    import {APP_REMOTE_URL, APP_HOST, APP_PORT} from "../constants"
+
 
     const expire_times = [
         {value: 600,label: '10 min'},
@@ -20,7 +21,7 @@
     let placeholder = randomKey()
 
     async function handleSubmit() {
-        let baseURL = "http://localhost:8080/api/paste"
+        let baseURL = `http://${APP_HOST}:${APP_PORT}/api/paste`
 
         let paste: CreatePaste = {text: text, key: key ? key : placeholder, seconds_until_expire: expires.value, burn_on_read: burn};
 
@@ -49,7 +50,7 @@
 <div class="flex flex-row mb-4 justify-between">
     <!-- key input -->
     <div class="flex flex-row">
-        <div class="border-y border-l bg-zinc-800 text-neutral-400 py-2 pl-2 border-zinc-700">{DISPLAY_URL + "/"}</div>
+        <div class="border-y border-l bg-zinc-800 text-neutral-400 py-2 pl-2 border-zinc-700">{APP_REMOTE_URL + "/"}</div>
         <input class="mr-4 border-y border-r py-2 pr-2 bg-zinc-800 border-zinc-700 text-neutral-300 placeholder-neutral-300/20 focus:outline-none" bind:value={key} placeholder={placeholder}/>
     </div>
 
