@@ -7,3 +7,9 @@ declare namespace App {
 	// interface Error {}
 	// interface Platform {}
 }
+
+declare module '$env/static/public' {
+	export const APP_HOST: string;
+	export const APP_PORT: string;
+	export const APP_REMOTE_URL: string;
+}

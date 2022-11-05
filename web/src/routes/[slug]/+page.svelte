@@ -1,4 +1,3 @@
-
 <script lang='ts'>
     import type { Paste } from '../../../interfaces';
 

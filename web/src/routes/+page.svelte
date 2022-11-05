@@ -1,7 +1,7 @@
 <script lang="ts">
     import { goto } from '$app/navigation';
     import type {CreatePaste} from "../../interfaces"
-    import {APP_REMOTE_URL, APP_HOST, APP_PORT} from "../constants"
+    import { APP_REMOTE_URL, APP_HOST, APP_PORT } from '$env/static/public';
 
 
     const expire_times = [
@@ -32,7 +32,6 @@
         };
 
         let res = await fetch(baseURL, requestOptions);
-        let resp = await res.text();
 
         // redirect to paste url
         goto(`/${paste.key}`, { replaceState: false }) 
