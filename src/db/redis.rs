@@ -45,14 +45,10 @@ impl Storer for Redis {
     }
 
     async fn create(&self, paste: models::Paste) -> Result<(), &'static str> {
-        // match self
-        //     .conn
-        //     .json_set(paste.key.clone(), "$", &json!(paste))
-        //     .await
         match self
             .conn
             .clone()
-            .json_set::<_, _, _, String>("my_key", "$", &json!({"item": 42i32}))
+            .json_set::<_, _, _, models::Paste>(paste.key.clone(), "$", &paste.clone())
             .await
         {
             Ok(_) => Ok(()),
@@ -62,7 +58,6 @@ impl Storer for Redis {
             }
         }
     }
-    
 
     async fn delete(&self, key: &String) -> Result<models::Paste, &'static str> {
         // if let Some(paste) = self.db.write().unwrap().remove(key) {
