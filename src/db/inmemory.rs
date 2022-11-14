@@ -33,9 +33,9 @@ impl Storer for InMemory {
             .insert(paste.key.clone(), paste.clone());
         return Ok(());
     }
-    async fn delete(&self, key: &String) -> Result<models::Paste, &'static str> {
-        if let Some(paste) = self.db.write().unwrap().remove(key) {
-            return Ok(paste);
+    async fn delete(&self, key: &String) -> Result<(), &'static str> {
+        if let Some(_) = self.db.write().unwrap().remove(key) {
+            return Ok(());
         } else {
             return Err("paste not found");
         }
@@ -93,11 +93,9 @@ mod tests {
             .await
             .expect("should create new paste");
 
-        let resp = db
-            .delete(&paste.clone().key)
+        db.delete(&paste.clone().key)
             .await
-            .expect("should return paste");
-        assert_eq!(paste, resp);
+            .expect("should delete paste");
 
         let resp = db.get(paste.clone().key).await;
         assert!(resp.is_err());
