@@ -20,10 +20,6 @@ impl Redis {
                 return Ok(Redis { conn });
             }
             Err(_) => Err("failed to parse redis connection string"),
-            // Ok(client) => match client.get_async_connection().await {
-            //     Ok(mut conn) => Ok(Redis { conn }),
-            //     Err(_) => Err("failed to make connection with redis client"),
-            // },
         }
     }
 }
@@ -31,18 +27,30 @@ impl Redis {
 #[async_trait]
 impl Storer for Redis {
     async fn get(&self, key: String) -> Result<models::Paste, &'static str> {
-        // let found_paste: models::Paste;
-        // if let Some(paste) = self.db.read().unwrap().get(&key) {
-        //     found_paste = paste.clone();
-        // } else {
-        //     return Err("paste not found");
-        // }
-        // if found_paste.burn_on_read {
-        //     self.delete(&found_paste.key).await?;
-        // }
-        // return Ok(found_paste);
-        unimplemented!();
+        match self.conn.clone().get::<_, String>(key).await {
+            Ok(paste_str) => match serde_json::from_str(&paste_str) {
+                Ok(paste) => Ok(paste),
+                Err(err) => {
+                    println!("{}", err);
+                    return Err("Parse to JSON Failed");
+                }
+            },
+            Err(err) => {
+                println!("{}", err);
+                Err("paste not found")
+            }
+        }
     }
+    // let found_paste: models::Paste;
+    // if let Some(paste) = self.db.read().unwrap().get(&key) {
+    //     found_paste = paste.clone();
+    // } else {
+    //     return Err("paste not found");
+    // }
+    // if found_paste.burn_on_read {
+    //     self.delete(&found_paste.key).await?;
+    // }
+    // return Ok(found_paste);
 
     async fn create(&self, paste: models::Paste) -> Result<(), &'static str> {
         let str_paste = serde_json::to_string(&paste).unwrap();
