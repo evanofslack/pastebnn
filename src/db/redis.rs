@@ -5,8 +5,8 @@ extern crate redis;
 use crate::db::Storer;
 use crate::models;
 use redis::aio::ConnectionManager;
-use redis::JsonAsyncCommands;
-use serde_json::json;
+use redis::AsyncCommands;
+use serde_json;
 
 pub struct Redis {
     pub conn: ConnectionManager,
@@ -45,10 +45,11 @@ impl Storer for Redis {
     }
 
     async fn create(&self, paste: models::Paste) -> Result<(), &'static str> {
+        let str_paste = serde_json::to_string(&paste).unwrap();
         match self
             .conn
             .clone()
-            .json_set::<_, _, _, models::Paste>(paste.key.clone(), "$", &paste.clone())
+            .set::<_, _, String>(paste.key.clone(), str_paste)
             .await
         {
             Ok(_) => Ok(()),

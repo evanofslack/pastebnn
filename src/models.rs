@@ -58,28 +58,3 @@ impl Paste {
         }
     }
 }
-
-// https://users.rust-lang.org/t/how-impl-a-trait-of-fromredisvalue-for-more-structs/67532/3
-impl FromRedisValue for Paste {
-    fn from_redis_value(v: &Value) -> RedisResult<Self> {
-        let json_str: String = from_redis_value(v)?;
-        println!("{}", json_str);
-        let result: Self = match serde_json::from_str(&json_str) {
-            Ok(v) => v,
-            Err(err) => {
-                println!("{}", err);
-                return Err((ErrorKind::TypeError, "Parse to JSON Failed").into());
-            }
-        };
-        Ok(result)
-    }
-}
-
-impl ToRedisArgs for Paste {
-    fn write_redis_args<W>(&self, out: &mut W)
-    where
-        W: ?Sized + RedisWrite,
-    {
-        out.write_arg(&serde_json::to_vec(&self).unwrap()[..])
-    }
-}
