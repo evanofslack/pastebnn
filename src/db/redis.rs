@@ -12,9 +12,51 @@ pub struct Redis {
     pub conn: ConnectionManager,
 }
 
+pub struct ConnInfo {
+    hostname: String,
+    port: i32,
+    username: Option<String>,
+    password: Option<String>,
+}
+
+impl Default for ConnInfo {
+    fn default() -> Self {
+        Self {
+            hostname: "localhost".to_string(),
+            port: 6379,
+            username: None,
+            password: None,
+        }
+    }
+}
+
+impl ConnInfo {
+    pub fn new(
+        hostname: String,
+        port: i32,
+        username: Option<String>,
+        password: Option<String>,
+    ) -> Self {
+        Self {
+            hostname,
+            port,
+            username,
+            password,
+        }
+    }
+}
+
 impl Redis {
-    pub async fn new() -> Result<Self, &'static str> {
-        match redis::Client::open("redis://127.0.0.1") {
+    pub async fn new(conn_info: ConnInfo) -> Result<Self, &'static str> {
+        // expected format -> redis://[<username>][:<password>@]<hostname>[:port][/<db>]
+        let conn_url = format!(
+            "redis://{}:{}@{}:{}",
+            conn_info.username.unwrap_or_default(),
+            conn_info.password.unwrap_or_default(),
+            conn_info.hostname,
+            conn_info.port
+        );
+        match redis::Client::open(conn_url) {
             Ok(client) => {
                 let conn = ConnectionManager::new(client.clone()).await.unwrap();
                 return Ok(Redis { conn });
@@ -114,7 +156,7 @@ mod tests {
 
     #[tokio::test]
     async fn create_and_get() {
-        let db = Redis::new().await.unwrap();
+        let db = Redis::new(ConnInfo::default()).await.unwrap();
         let paste = models::Paste::new(String::from("key"), String::from("text"), None, true);
         db.create(paste.clone())
             .await
@@ -129,7 +171,7 @@ mod tests {
 
     #[tokio::test]
     async fn delete() {
-        let db = Redis::new().await.unwrap();
+        let db = Redis::new(ConnInfo::default()).await.unwrap();
         let paste = models::Paste::new(String::from("key"), String::from("text"), None, false);
         db.create(paste.clone())
             .await
@@ -148,7 +190,7 @@ mod tests {
 
     #[tokio::test]
     async fn burn_on_read() {
-        let db = Redis::new().await.unwrap();
+        let db = Redis::new(ConnInfo::default()).await.unwrap();
         let paste = models::Paste::new(String::from("key"), String::from("text"), None, true);
         db.create(paste.clone())
             .await
