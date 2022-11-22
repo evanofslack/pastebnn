@@ -30,7 +30,6 @@ pub struct Settings {
     pub purge_period: u64,
 
     /// Storage backend
-    // #[clap(long, env("STORAGE_BACKEND"))]
     #[clap(value_enum, default_value_t=StorageBackend::InMemory, env("STORAGE_BACKEND"))]
     pub storage_backend: StorageBackend,
 

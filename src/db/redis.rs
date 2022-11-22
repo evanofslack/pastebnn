@@ -1,5 +1,4 @@
 use async_trait::async_trait;
-// use std::time::{SystemTime, UNIX_EPOCH};
 extern crate redis;
 
 use crate::db::Storer;
@@ -12,6 +11,7 @@ pub struct Redis {
     pub conn: ConnectionManager,
 }
 
+#[derive(Debug)]
 pub struct ConnInfo {
     hostname: String,
     port: i32,
@@ -56,11 +56,15 @@ impl Redis {
             conn_info.hostname,
             conn_info.port
         );
+        println!("{}", conn_url);
         match redis::Client::open(conn_url) {
-            Ok(client) => {
-                let conn = ConnectionManager::new(client.clone()).await.unwrap();
-                return Ok(Redis { conn });
-            }
+            Ok(client) => match ConnectionManager::new(client.clone()).await {
+                Ok(conn) => Ok(Redis { conn }),
+                Err(err) => {
+                    println!("{}", err);
+                    Err("failed to connect to redis instance")
+                }
+            },
             Err(_) => Err("failed to parse redis connection string"),
         }
     }
