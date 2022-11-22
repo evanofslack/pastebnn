@@ -1,5 +1,5 @@
 use axum::{extract::Extension, Router};
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use std::{net::SocketAddr, sync::Arc};
 use tower_http::{cors::CorsLayer, trace::TraceLayer};
 
@@ -28,6 +28,29 @@ pub struct Settings {
     /// Time in seconds between clearing expired pastes
     #[clap(long, env("APP_PURGE_PERIOD"), default_value("60"))]
     pub purge_period: u64,
+
+    /// Storage backend
+    #[clap(value_enum, default_value_t=StorageBackend::InMemory, env("STORAGE_BACKEND"))]
+    pub storage_backend: StorageBackend,
+
+    /// Redis username
+    #[clap(long, env("REDIS_USERNAME"))]
+    pub redis_username: Option<String>,
+    /// Redis password
+    #[clap(long, env("REDIS_PASSWORD"))]
+    pub redis_password: Option<String>,
+    /// Redis host
+    #[clap(long, env("REDIS_HOST"))]
+    pub redis_host: Option<String>,
+    /// Redis port
+    #[clap(long, env("REDIS_PORT"))]
+    pub redis_port: Option<i32>,
+}
+
+#[derive(ValueEnum, Clone, Debug)]
+pub enum StorageBackend {
+    InMemory,
+    Redis,
 }
 
 type DynStorer = Arc<dyn db::Storer + Send + Sync>;
@@ -42,8 +65,24 @@ async fn main() {
         .parse::<SocketAddr>()
         .expect("failed to parse socket address");
 
-    let paste_store = Arc::new(db::inmemory::InMemory::default()) as DynStorer;
-    let app = create_app(paste_store.clone());
+    let store: DynStorer = match settings.storage_backend {
+        StorageBackend::InMemory => {
+            tracing::info!("using in memory store");
+            Arc::new(db::inmemory::InMemory::default())
+        }
+        StorageBackend::Redis => {
+            tracing::info!("using redis store");
+            let conn_info = db::redis::ConnInfo::new(
+                settings.redis_host.unwrap(),
+                settings.redis_port.unwrap(),
+                settings.redis_username,
+                settings.redis_password,
+            );
+            Arc::new(db::redis::Redis::new(conn_info).await.unwrap())
+        }
+    };
+
+    let app = create_app(store.clone());
 
     logger::setup(settings.log_level);
 
@@ -62,7 +101,7 @@ async fn main() {
                 tracing::error!("error: {}", error)
             }
         },
-        res = paste_store.delete_periodically(settings.purge_period) => {
+        res = store.delete_periodically(settings.purge_period) => {
             if let Err(error) = res {
                 tracing::error!("error: {}", error)
             }

@@ -4,12 +4,14 @@ use tokio::time;
 
 use crate::models;
 pub mod inmemory;
+pub mod redis;
 
 #[async_trait]
 pub trait Storer: Sync {
+    // async fn new(&self) -> Self;
     async fn get(&self, key: String) -> Result<models::Paste, &'static str>;
     async fn create(&self, paste: models::Paste) -> Result<(), &'static str>;
-    async fn delete(&self, key: &String) -> Result<models::Paste, &'static str>;
+    async fn delete(&self, key: &String) -> Result<(), &'static str>;
     async fn get_expired(&self) -> Vec<models::Paste>;
 
     async fn delete_expired(&self) -> Result<(), &'static str> {
