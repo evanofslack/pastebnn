@@ -1,26 +1,29 @@
----
-version: "3.7"
+version: '3.7'
 services:
-    redis:
-        image: redis:latest
-        restart: unless-stopped
-        ports:
-            - '6379:6379'
-
-    pastebnn:
-        # image: evanofslack/pastebnn:0.1.1
-        build: .
-        environment:
-            APP_PORT: 8080
-            APP_REMOTE_URL: "bin.eslack.net"
-            APP_LOG_LEVEL: "debug"
-            STORAGE_BACKEND: "redis"
-            REDIS_HOST: "redis"
-            REDIS_PORT: 6379
-        ports:
-            - "8080:8080"
-        restart: unless-stopped
-        depends_on: 
-            - "redis"
-
-        
+  redis:
+    image: redis:latest
+    restart: unless-stopped
+    ports:
+      - '6379:6379'
+  pastebnn-server:
+    build: .
+    environment:
+      APP_PORT: 8080
+      APP_REMOTE_URL: 'bin.eslack.net'
+      APP_LOG_LEVEL: 'debug'
+      STORAGE_BACKEND: 'redis'
+      REDIS_HOST: 'redis'
+      REDIS_PORT: 6379
+    ports:
+      - '8080:8080'
+    restart: unless-stopped
+    depends_on:
+      - 'redis'
+  pastebnn-ui:
+    build: ./web
+    # environment:
+    ports:
+      - '3000:3000'
+    restart: unless-stopped
+    depends_on:
+      - 'pastebnn-server'

@@ -1,23 +1,13 @@
-FROM rust:1.63 as builder-backend
+FROM rust:1.63 as builder
 
 RUN USER=root cargo new --bin pastebnn
 WORKDIR /pastebnn
 COPY ./Cargo.toml ./Cargo.toml
-RUN cargo build --release
-RUN rm src/*.rs
+RUN cargo build --release && rm src/*.rs
 
-ADD . ./
+COPY . ./
 
-RUN rm ./target/release/deps/pastebnn*
-RUN cargo build --release
-
-
-FROM node:18 as builder-frontend
-WORKDIR /pastebnn
-COPY ./web .
-RUN npm ci
-RUN npm audit fix
-RUN npm run build
+RUN rm ./target/release/deps/pastebnn* && cargo build --release
 
 
 FROM debian:buster-slim
@@ -34,8 +24,7 @@ RUN groupadd $APP_USER \
     && mkdir -p ${APP} \
     && mkdir -p ${APP}/web/build
 
-COPY --from=builder-backend /pastebnn/target/release/pastebnn ${APP}
-COPY --from=builder-frontend /pastebnn/build ${APP}/web/build
+COPY --from=builder /pastebnn/target/release/pastebnn ${APP}
 
 RUN chown -R $APP_USER:$APP_USER ${APP}
 
