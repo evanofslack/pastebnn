@@ -1,32 +1,30 @@
-version: '3.7'
+version: "3.7"
 services:
   redis:
     image: redis:latest
     restart: unless-stopped
     ports:
-      - '6379:6379'
+      - "6379:6379"
   pastebnn-server:
     build: .
     environment:
-      APP_PORT: 8080
-      APP_LOG_LEVEL: 'debug'
-      STORAGE_BACKEND: 'redis'
-      REDIS_HOST: 'redis'
+      SERVER_PORT: 8080
+      STORAGE_BACKEND: "redis"
+      REDIS_HOST: "redis"
       REDIS_PORT: 6379
     ports:
-      - '8080:8080'
+      - "8080:8080"
     restart: unless-stopped
     depends_on:
-      - 'redis'
+      - "redis"
   pastebnn-ui:
     build: ./web
     environment:
-      APP_NAME: 'pastebnn.com'
-      # SERVER_HOST: 'pastebnn-server'
-      SERVER_HOST: 'localhost'
-      SERVER_PORT: '8080'
+      APP_NAME: "pastebnn.com"
+      SERVER_HOST: "localhost"
+      SERVER_PORT: "8080"
     ports:
-      - '3000:3000'
+      - "3000:3000"
     restart: unless-stopped
     depends_on:
-      - 'pastebnn-server'
+      - "pastebnn-server"
