@@ -1,8 +1,7 @@
 <script lang="ts">
     import { goto } from '$app/navigation';
     import type {CreatePaste} from "../../interfaces"
-    import { APP_REMOTE_URL, APP_HOST, APP_PORT } from '$env/static/public';
-
+    import { env } from '$env/dynamic/public'
 
     const expire_times = [
         {value: 600,label: '10 min'},
@@ -21,7 +20,8 @@
     let placeholder = randomKey()
 
     async function handleSubmit() {
-        let baseURL = `http://${APP_HOST}:${APP_PORT}/api/paste`
+        let baseURL = `http://${env.SERVER_HOST}:${env.SERVER_PORT}/api/paste`
+        console.log(baseURL)
 
         let paste: CreatePaste = {text: text, key: key ? key : placeholder, seconds_until_expire: expires.value, burn_on_read: burn};
 
@@ -34,12 +34,12 @@
         let res = await fetch(baseURL, requestOptions);
 
         // redirect to paste url
-        goto(`/${paste.key}`, { replaceState: false }) 
+        goto(`/${paste.key}`, { replaceState: false })
 	}
 
     function randomKey(): string {
-        let adjectives = ["young", "old", "small", "large", "cute", "ugly", "sly", "overt", "loud", "quiet", "crazy", "tame", "smart", "dumb", "lazy", "weak", "strong", "fast", "slow", "fat", "thin", "hot", "cold", "wild", "tame", "wet", "dry", "rich", "poor", "sad", "happy"]
-        let nouns = ["lion", "trout", "ant", "hawk", "moose", "swan", "goat", "slug", "mole", "toad", "wolf", "crab","ox","seal", "fox", "moth", "worm", "yak", "loon"]
+        let adjectives = ["young", "old", "small", "large", "cute", "ugly", "sly", "overt", "loud", "quiet", "crazy", "tame", "smart", "dumb", "lazy", "weak", "strong", "fast", "slow", "fat", "thin", "hot", "cold", "wild", "tame", "wet", "dry", "rich", "poor", "sad", "happy", "rowdy"]
+        let nouns = ["lion", "trout", "ant", "hawk", "moose", "swan", "goat", "slug", "mole", "toad", "wolf", "crab","ox","seal", "fox", "moth", "worm", "yak", "loon", "deer", "hen"]
         const randAdj = Math.floor(Math.random() * adjectives.length);
         const randNoun = Math.floor(Math.random() * nouns.length);
         return adjectives[randAdj] + "-" + nouns[randNoun]
@@ -49,11 +49,12 @@
 <div class="flex flex-row mb-4 justify-between">
     <!-- key input -->
     <div class="flex flex-row">
-        <div class="border-y border-l bg-zinc-800 text-neutral-400 py-2 pl-2 border-zinc-700">{APP_REMOTE_URL + "/"}</div>
+        <div class="border-y border-l bg-zinc-800 text-neutral-400 py-2 pl-2 border-zinc-700">{env.APP_NAME + "/"}</div>
         <input class="mr-4 border-y border-r py-2 pr-2 bg-zinc-800 border-zinc-700 text-neutral-300 placeholder-neutral-300/20 focus:outline-none" bind:value={key} placeholder={placeholder}/>
     </div>
 
     <div class="flex flex-row">
+
         <!-- expiration dropdown-->
         <div class="flex items-center mr-4">
             <p class="text-neutral-300/60 mr-1">expire</p>

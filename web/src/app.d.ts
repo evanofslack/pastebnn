@@ -9,7 +9,7 @@ declare namespace App {
 }
 
 declare module '$env/static/public' {
-	export const APP_HOST: string;
-	export const APP_PORT: string;
-	export const APP_REMOTE_URL: string;
+	export const APP_NAME: string
+	export const SERVER_HOST: string
+	export const SERVER_PORT: string
 }
