@@ -3,6 +3,9 @@
     import type {CreatePaste} from "../../interfaces"
     import { env } from '$env/dynamic/public'
 
+    const app_name = env.PASTEBNN_APP_NAME || "pastebnn.com"
+    const app_port = env.PASTEBNN_API_PORT || 8080
+
     const expire_times = [
         {value: 600,label: '10 min'},
         {value: 3600,label: '1 hour'},
@@ -20,11 +23,9 @@
     let placeholder = randomKey()
 
     async function handleSubmit() {
-        let baseURL = `http://${env.SERVER_HOST}:${env.SERVER_PORT}/api/paste`
-        console.log(baseURL)
 
+        let baseURL = `http://localhost:${app_port}/api/paste`
         let paste: CreatePaste = {text: text, key: key ? key : placeholder, seconds_until_expire: expires.value, burn_on_read: burn};
-
         let requestOptions = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -49,7 +50,7 @@
 <div class="flex flex-row mb-4 justify-between">
     <!-- key input -->
     <div class="flex flex-row">
-        <div class="border-y border-l bg-zinc-800 text-neutral-400 py-2 pl-2 border-zinc-700">{env.APP_NAME + "/"}</div>
+        <div class="border-y border-l bg-zinc-800 text-neutral-400 py-2 pl-2 border-zinc-700">{app_name + "/"}</div>
         <input class="mr-4 border-y border-r py-2 pr-2 bg-zinc-800 border-zinc-700 text-neutral-300 placeholder-neutral-300/20 focus:outline-none" bind:value={key} placeholder={placeholder}/>
     </div>
 
