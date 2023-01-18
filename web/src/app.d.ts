@@ -9,7 +9,6 @@ declare namespace App {
 }
 
 declare module '$env/static/public' {
-	export const APP_NAME: string
-	export const SERVER_HOST: string
-	export const SERVER_PORT: string
+	export const PASTEBNN_APP_NAME: string;
+	export const PASTEBNN_API_PORT: string;
 }
