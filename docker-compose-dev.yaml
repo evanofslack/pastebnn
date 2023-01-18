@@ -6,22 +6,26 @@ services:
     ports:
       - "6379:6379"
   api:
-    image: evanofslack/pastebnn-api:0.1.0
+    build: .
+    restart: unless-stopped
     environment:
+      PASTEBNN_API_HOST: "0.0.0.0"
+      PASTEBNN_API_PORT: 8080
+      PASTEBNN_LOG_LEVEL: "debug"
       PASTEBNN_STORAGE_BACKEND: "redis"
       PASTEBNN_REDIS_HOST: "redis"
       PASTEBNN_REDIS_PORT: 6379
     ports:
-      - "8080:8080"
-    restart: unless-stopped
+      - 8080:8080
     depends_on:
       - "redis"
   ui:
-    image: evanofslack/pastebnn-ui:0.1.0
+    build: ./web
+    restart: unless-stopped
     environment:
       PASTEBNN_APP_NAME: "pastebnn.com"
+      PASTEBNN_API_PORT: "8080"
     ports:
-      - "3000:3000"
-    restart: unless-stopped
+      - 3000:3000
     depends_on:
       - "api"
