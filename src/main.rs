@@ -14,33 +14,33 @@ mod models;
 )]
 pub struct Settings {
     /// Listening port of http server
-    #[clap(long, env("SERVER_PORT"), default_value("8080"))]
+    #[clap(long, env("PASTEBNN_API_PORT"), default_value("8080"))]
     pub port: u16,
     /// Listening host of http server
-    #[clap(long, env("SERVER_HOST"), default_value("0.0.0.0"))]
+    #[clap(long, env("PASTEBNN_API_HOST"), default_value("0.0.0.0"))]
     pub host: String,
     /// Log level (same syntax as RUST_LOG)
-    #[clap(long, env("SERVER_LOG_LEVEL"), default_value("info"))]
+    #[clap(long, env("PASTEBNN_LOG_LEVEL"), default_value("info"))]
     pub log_level: String,
     /// Time in seconds between clearing expired pastes
-    #[clap(long, env("SERVER_PURGE_PERIOD"), default_value("60"))]
+    #[clap(long, env("PASTEBNN_PURGE_PERIOD"), default_value("60"))]
     pub purge_period: u64,
 
     /// Storage backend
-    #[clap(value_enum, default_value_t=StorageBackend::InMemory, env("STORAGE_BACKEND"))]
+    #[clap(value_enum, default_value_t=StorageBackend::InMemory, env("PASTEBNN_STORAGE_BACKEND"))]
     pub storage_backend: StorageBackend,
 
     /// Redis username
-    #[clap(long, env("REDIS_USERNAME"))]
+    #[clap(long, env("PASTEBNN_REDIS_USERNAME"))]
     pub redis_username: Option<String>,
     /// Redis password
-    #[clap(long, env("REDIS_PASSWORD"))]
+    #[clap(long, env("PASTEBNN_REDIS_PASSWORD"))]
     pub redis_password: Option<String>,
     /// Redis host
-    #[clap(long, env("REDIS_HOST"))]
+    #[clap(long, env("PASTEBNN_REDIS_HOST"))]
     pub redis_host: Option<String>,
     /// Redis port
-    #[clap(long, env("REDIS_PORT"))]
+    #[clap(long, env("PASTEBNN_REDIS_PORT"))]
     pub redis_port: Option<i32>,
 }
 
@@ -80,7 +80,7 @@ async fn main() {
 
     logger::setup(settings.log_level);
 
-    tracing::info!("listening on {}", addr);
+    tracing::info!("pastebnn server listening on {}", addr);
     let server = axum::Server::bind(&addr)
         .serve(app.into_make_service())
         .with_graceful_shutdown(async {
@@ -105,10 +105,10 @@ async fn main() {
 
 fn create_app(storer: DynStorer) -> Router {
     let app = handlers::pastes::create_router()
-        .layer(Extension(storer))
-        .merge(handlers::status::create_router())
         .layer(CorsLayer::permissive())
-        .layer(TraceLayer::new_for_http());
+        .layer(TraceLayer::new_for_http())
+        .layer(Extension(storer))
+        .merge(handlers::status::create_router());
     return app;
 }
 
