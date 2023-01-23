@@ -25,6 +25,9 @@ pub struct Settings {
     /// Time in seconds between clearing expired pastes
     #[clap(long, env("PASTEBNN_PURGE_PERIOD"), default_value("60"))]
     pub purge_period: u64,
+    /// Max size of paste in bytes
+    #[clap(long, env("PASTEBNN_MAX_SIZE_BYTES"), default_value("1024"))]
+    pub max_size: usize,
 
     /// Storage backend
     #[clap(value_enum, default_value_t=StorageBackend::InMemory, env("PASTEBNN_STORAGE_BACKEND"))]
@@ -62,7 +65,7 @@ async fn main() {
     let store: DynStorer = match settings.storage_backend {
         StorageBackend::InMemory => {
             tracing::info!("using in memory store");
-            Arc::new(db::inmemory::InMemory::default())
+            Arc::new(db::inmemory::InMemory::new(settings.max_size).await.unwrap())
         }
         StorageBackend::Redis => {
             tracing::info!("using redis store");
@@ -72,7 +75,7 @@ async fn main() {
                 settings.redis_username,
                 settings.redis_password,
             );
-            Arc::new(db::redis::Redis::new(conn_info).await.unwrap())
+            Arc::new(db::redis::Redis::new(conn_info, settings.max_size).await.unwrap())
         }
     };
 
@@ -124,7 +127,7 @@ mod tests {
 
     #[tokio::test]
     async fn root() {
-        let mock_store = Arc::new(db::inmemory::InMemory::default()) as DynStorer;
+        let mock_store = Arc::new(db::inmemory::InMemory::new(1024).await.unwrap()) as DynStorer;
         let app = create_app(mock_store);
 
         let resp = app

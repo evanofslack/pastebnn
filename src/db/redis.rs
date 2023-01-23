@@ -9,6 +9,7 @@ use serde_json;
 
 pub struct Redis {
     pub conn: ConnectionManager,
+    max_size: usize
 }
 
 #[derive(Debug)]
@@ -47,7 +48,7 @@ impl ConnInfo {
 }
 
 impl Redis {
-    pub async fn new(conn_info: ConnInfo) -> Result<Self, &'static str> {
+    pub async fn new(conn_info: ConnInfo, max_size: usize) -> Result<Self, &'static str> {
         // expected format -> redis://[<username>][:<password>@]<hostname>[:port][/<db>]
         let conn_url = format!(
             "redis://{}:{}@{}:{}",
@@ -56,13 +57,12 @@ impl Redis {
             conn_info.hostname,
             conn_info.port
         );
-        println!("{}", conn_url);
         match redis::Client::open(conn_url) {
             Ok(client) => match ConnectionManager::new(client.clone()).await {
-                Ok(conn) => Ok(Redis { conn }),
+                Ok(conn) =>
+                    return Ok(Redis { conn: conn, max_size: max_size}),
                 Err(err) => {
-                    println!("{}", err);
-                    Err("failed to connect to redis instance")
+                    return Err("failed to connect to redis instance")
                 }
             },
             Err(_) => Err("failed to parse redis connection string"),
@@ -96,6 +96,11 @@ impl Storer for Redis {
     }
 
     async fn create(&self, paste: models::Paste) -> Result<(), &'static str> {
+        if paste.text.len() > self.max_size {
+            println!("paste too large");
+            return Err("paste is larger than maximum allowed size");
+        }
+
         let paste_str = serde_json::to_string(&paste).unwrap();
         let mut conn = self.conn.clone();
 
@@ -159,8 +164,16 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    async fn paste_too_large() {
+        // paste new text is 4 bytes while max_size is 3 bytes
+        let db = Redis::new(ConnInfo::default(), 3).await.unwrap();
+        let paste = models::Paste::new(String::from("key"), String::from("text"), None, true);
+        assert!(db.create(paste.clone()).await.is_err())
+    }
+
+    #[tokio::test]
     async fn create_and_get() {
-        let db = Redis::new(ConnInfo::default()).await.unwrap();
+        let db = Redis::new(ConnInfo::default(), 1024).await.unwrap();
         let paste = models::Paste::new(String::from("key"), String::from("text"), None, true);
         db.create(paste.clone())
             .await
@@ -175,7 +188,7 @@ mod tests {
 
     #[tokio::test]
     async fn delete() {
-        let db = Redis::new(ConnInfo::default()).await.unwrap();
+        let db = Redis::new(ConnInfo::default(), 1024).await.unwrap();
         let paste = models::Paste::new(String::from("key"), String::from("text"), None, false);
         db.create(paste.clone())
             .await
@@ -194,7 +207,7 @@ mod tests {
 
     #[tokio::test]
     async fn burn_on_read() {
-        let db = Redis::new(ConnInfo::default()).await.unwrap();
+        let db = Redis::new(ConnInfo::default(), 1024).await.unwrap();
         let paste = models::Paste::new(String::from("key"), String::from("text"), None, true);
         db.create(paste.clone())
             .await

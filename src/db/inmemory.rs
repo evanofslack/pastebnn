@@ -6,9 +6,15 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::db::Storer;
 use crate::models;
 
-#[derive(Default)]
 pub struct InMemory {
     pub db: RwLock<HashMap<String, models::Paste>>,
+    max_size: usize,
+}
+
+impl InMemory {
+    pub async fn new(max_size: usize) -> Result<Self, &'static str> {
+        return Ok(InMemory {db: RwLock::new(HashMap::new()), max_size: max_size})
+    }
 }
 
 #[async_trait]
@@ -27,6 +33,10 @@ impl Storer for InMemory {
     }
 
     async fn create(&self, paste: models::Paste) -> Result<(), &'static str> {
+        if paste.text.len() > self.max_size {
+            println!("paste too large");
+            return Err("paste is larger than maximum allowed size");
+        }
         self.db
             .write()
             .unwrap()
@@ -71,8 +81,16 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    async fn paste_too_large() {
+        // paste new text is 4 bytes while max_size is 3 bytes
+        let db = InMemory::new(3).await.unwrap();
+        let paste = models::Paste::new(String::from("key"), String::from("text"), None, true);
+        assert!(db.create(paste.clone()).await.is_err())
+    }
+
+    #[tokio::test]
     async fn create_and_get() {
-        let db = InMemory::default();
+        let db = InMemory::new(1024).await.unwrap();
         let paste = models::Paste::new(String::from("key"), String::from("text"), None, true);
         db.create(paste.clone())
             .await
@@ -87,7 +105,7 @@ mod tests {
 
     #[tokio::test]
     async fn delete() {
-        let db = InMemory::default();
+        let db = InMemory::new(1024).await.unwrap();
         let paste = models::Paste::new(String::from("key"), String::from("text"), None, false);
         db.create(paste.clone())
             .await
@@ -106,7 +124,7 @@ mod tests {
 
     #[tokio::test]
     async fn burn_on_read() {
-        let db = InMemory::default();
+        let db = InMemory::new(1024).await.unwrap();
         let paste = models::Paste::new(String::from("key"), String::from("text"), None, true);
         db.create(paste.clone())
             .await
