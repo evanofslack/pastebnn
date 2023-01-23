@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use std::collections::HashMap;
-use std::mem::size_of;
 use std::sync::RwLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -83,11 +82,10 @@ mod tests {
 
     #[tokio::test]
     async fn paste_too_large() {
-        let db = InMemory::new(2).await.unwrap();
+        // paste new text is 4 bytes while max_size is 3 bytes
+        let db = InMemory::new(3).await.unwrap();
         let paste = models::Paste::new(String::from("key"), String::from("text"), None, true);
-        db.create(paste.clone())
-            .await
-            .expect("should create new paste");
+        assert!(db.create(paste.clone()).await.is_err())
     }
 
     #[tokio::test]

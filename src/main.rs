@@ -127,7 +127,7 @@ mod tests {
 
     #[tokio::test]
     async fn root() {
-        let mock_store = Arc::new(db::inmemory::InMemory::default()) as DynStorer;
+        let mock_store = Arc::new(db::inmemory::InMemory::new(1024).await.unwrap()) as DynStorer;
         let app = create_app(mock_store);
 
         let resp = app

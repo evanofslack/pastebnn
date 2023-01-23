@@ -164,8 +164,16 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    async fn paste_too_large() {
+        // paste new text is 4 bytes while max_size is 3 bytes
+        let db = Redis::new(ConnInfo::default(), 3).await.unwrap();
+        let paste = models::Paste::new(String::from("key"), String::from("text"), None, true);
+        assert!(db.create(paste.clone()).await.is_err())
+    }
+
+    #[tokio::test]
     async fn create_and_get() {
-        let db = Redis::new(ConnInfo::default()).await.unwrap();
+        let db = Redis::new(ConnInfo::default(), 1024).await.unwrap();
         let paste = models::Paste::new(String::from("key"), String::from("text"), None, true);
         db.create(paste.clone())
             .await
@@ -180,7 +188,7 @@ mod tests {
 
     #[tokio::test]
     async fn delete() {
-        let db = Redis::new(ConnInfo::default()).await.unwrap();
+        let db = Redis::new(ConnInfo::default(), 1024).await.unwrap();
         let paste = models::Paste::new(String::from("key"), String::from("text"), None, false);
         db.create(paste.clone())
             .await
@@ -199,7 +207,7 @@ mod tests {
 
     #[tokio::test]
     async fn burn_on_read() {
-        let db = Redis::new(ConnInfo::default()).await.unwrap();
+        let db = Redis::new(ConnInfo::default(), 1024).await.unwrap();
         let paste = models::Paste::new(String::from("key"), String::from("text"), None, true);
         db.create(paste.clone())
             .await
