@@ -24,7 +24,7 @@
 
     async function handleSubmit() {
 
-        let baseURL = `http://localhost:${app_port}/api/paste`
+        let baseURL = `/api/paste`
         let paste: CreatePaste = {text: text, key: key ? key : placeholder, seconds_until_expire: expires.value, burn_on_read: burn};
         let requestOptions = {
             method: 'POST',
