@@ -105,10 +105,11 @@ async fn main() {
 
 fn create_app(storer: DynStorer) -> Router {
     let app = handlers::pastes::create_router()
-        .layer(CorsLayer::permissive())
-        .layer(TraceLayer::new_for_http())
         .layer(Extension(storer))
-        .merge(handlers::status::create_router());
+        .merge(handlers::status::create_router())
+        .merge(handlers::frontend::create_router())
+        .layer(CorsLayer::permissive())
+        .layer(TraceLayer::new_for_http());
     return app;
 }
 
