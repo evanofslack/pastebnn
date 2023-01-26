@@ -8,7 +8,7 @@
 
     const app_port = env.PASTEBNN_API_PORT || 8080;
     const pasteID: string = data.pasteID;
-    const endpoint = `http://localhost:${app_port}/api/paste/${pasteID}`;
+    const endpoint = `/api/paste/${pasteID}`;
     let key = "";
     let text = "";
     let expires_in = 0;

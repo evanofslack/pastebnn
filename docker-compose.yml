@@ -5,8 +5,8 @@ services:
     restart: unless-stopped
     ports:
       - "6379:6379"
-  api:
-    image: evanofslack/pastebnn-api:0.1.0
+  pastebnn:
+    image: evanofslack/pastebnn:0.1.0
     environment:
       PASTEBNN_STORAGE_BACKEND: "redis"
       PASTEBNN_REDIS_HOST: "redis"
@@ -14,14 +14,3 @@ services:
     ports:
       - "8080:8080"
     restart: unless-stopped
-    depends_on:
-      - "redis"
-  ui:
-    image: evanofslack/pastebnn-ui:0.1.0
-    environment:
-      PASTEBNN_APP_NAME: "pastebnn.com"
-    ports:
-      - "3000:3000"
-    restart: unless-stopped
-    depends_on:
-      - "api"

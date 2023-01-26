@@ -5,7 +5,7 @@ services:
     restart: unless-stopped
     ports:
       - "6379:6379"
-  api:
+  pastebnn:
     build: .
     restart: unless-stopped
     environment:
@@ -17,16 +17,6 @@ services:
       PASTEBNN_REDIS_HOST: "redis"
       PASTEBNN_REDIS_PORT: 6379
     ports:
-      - 8080:8080
+      - 9999:8080
     depends_on:
       - "redis"
-  ui:
-    build: ./web
-    restart: unless-stopped
-    environment:
-      PASTEBNN_APP_NAME: "pastebnn.com"
-      PASTEBNN_API_PORT: "8080"
-    ports:
-      - 3000:3000
-    depends_on:
-      - "api"
