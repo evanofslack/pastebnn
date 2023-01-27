@@ -8,7 +8,6 @@ declare namespace App {
 	// interface Platform {}
 }
 
-declare module '$env/static/public' {
-	export const PASTEBNN_APP_NAME: string;
-	export const PASTEBNN_API_PORT: string;
-}
+// declare module '$env/static/public' {
+// 	export const API_BASE_URL: string;
+// }

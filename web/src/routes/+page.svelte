@@ -1,18 +1,21 @@
 <script lang="ts">
     import { goto } from '$app/navigation';
     import type {CreatePaste} from "../../interfaces"
-    import { env } from '$env/dynamic/public'
+    import { PUBLIC_API_BASE_URL } from '$env/static/public'
 
-    const app_name = env.PASTEBNN_APP_NAME || "pastebnn.com"
-    const app_port = env.PASTEBNN_API_PORT || 8080
+    // set base URL if serving from dev server
+    const api_base_url = PUBLIC_API_BASE_URL || ""
+
+    // TODO ui placeholder should eventually be a call to the backend
+    const app_name = "pastebnn.com"
 
     const expire_times = [
         {value: 600,label: '10 min'},
         {value: 3600,label: '1 hour'},
         {value: 24 * 3600,label: '1 day'},
-        {value: 24 * 3600,label: '1 week'},
+        {value: 24 * 3600 * 7,label: '1 week'},
         {value: 24 * 3600 * 30,label: '1 month'},
-        {value: -1, label: 'never'},
+        {value: null, label: 'never'},
     ];
     const default_expire = expire_times[0]
 
@@ -24,7 +27,7 @@
 
     async function handleSubmit() {
 
-        let baseURL = `/api/paste`
+        let endpoint = `${api_base_url}/api/paste`
         let paste: CreatePaste = {text: text, key: key ? key : placeholder, seconds_until_expire: expires.value, burn_on_read: burn};
         let requestOptions = {
             method: 'POST',
@@ -32,7 +35,7 @@
             body: JSON.stringify(paste)
         };
 
-        let res = await fetch(baseURL, requestOptions);
+        let res = await fetch(endpoint, requestOptions);
 
         // redirect to paste url
         goto(`/${paste.key}`, { replaceState: false })
@@ -56,6 +59,12 @@
 
     <div class="flex flex-row">
 
+        <!-- burn button -->
+        <label class="mr-4 flex items-center">
+            <p class="text-neutral-300/60 pr-1">burn</p>
+            <input class = "w-5 h-5 " type=checkbox bind:checked={burn}>
+        </label>
+
         <!-- expiration dropdown-->
         <div class="flex items-center mr-4">
             <p class="text-neutral-300/60 mr-1">expire</p>
@@ -68,15 +77,9 @@
             </select>
         </div>
 
-        <!-- burn button -->
-        <label class="pr-6 flex items-center">
-            <p class="text-neutral-300/60 pr-1">burn</p>
-            <input type=checkbox bind:checked={burn}>
-        </label>
-
         <!-- submit button -->
         <div>
-            <button class="p-2 bg-sky-900/60 border border-sky-900/90 text-neutral-300 hover:text-neutral-300 hover:bg-sky-500/30 hover:border-sky-300/40" on:click={handleSubmit} >submit</button>
+            <button class="p-2 ml-2 bg-sky-900/60 border border-sky-900/90 text-neutral-300 hover:text-neutral-300 hover:bg-sky-500/30 hover:border-sky-300/40" on:click={handleSubmit} >submit</button>
         </div>
     </div>
 </div>
