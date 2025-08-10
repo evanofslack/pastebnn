@@ -11,6 +11,9 @@ RUN rm ./target/release/deps/pastebnn* && cargo build --release
 
 
 FROM node:18-alpine AS builder-frontend
+ARG PUBLIC_API_BASE_URL=http://localhost:8080
+ENV PUBLIC_API_BASE_URL=$PUBLIC_API_BASE_URL
+
 WORKDIR /pastebnn
 COPY ./web .
 RUN npm ci && npm run build
