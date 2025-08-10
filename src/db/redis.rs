@@ -9,7 +9,7 @@ use serde_json;
 
 pub struct Redis {
     pub conn: ConnectionManager,
-    max_size: usize
+    max_size: usize,
 }
 
 #[derive(Debug)]
@@ -59,11 +59,8 @@ impl Redis {
         );
         match redis::Client::open(conn_url) {
             Ok(client) => match ConnectionManager::new(client.clone()).await {
-                Ok(conn) =>
-                    return Ok(Redis { conn: conn, max_size: max_size}),
-                Err(err) => {
-                    return Err("failed to connect to redis instance")
-                }
+                Ok(conn) => Ok(Redis { conn, max_size }),
+                Err(_) => Err("failed to connect to redis instance"),
             },
             Err(_) => Err("failed to parse redis connection string"),
         }
@@ -125,7 +122,7 @@ impl Storer for Redis {
             }
             None => {
                 match conn
-                    .set::<String, String, String>(paste.key.clone(), paste_str)
+                    .set::<String, String, String>(paste.key, paste_str)
                     .await
                 {
                     Ok(_) => Ok(()),
