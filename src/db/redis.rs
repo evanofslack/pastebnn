@@ -135,7 +135,7 @@ impl Storer for Redis {
         }
     }
 
-    async fn delete(&self, key: &String) -> Result<(), &'static str> {
+    async fn delete(&self, key: &str) -> Result<(), &'static str> {
         match self.conn.clone().del::<String, i32>(key.to_string()).await {
             Ok(_) => Ok(()),
             Err(err) => {
