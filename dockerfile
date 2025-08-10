@@ -10,7 +10,7 @@ COPY . ./
 RUN rm ./target/release/deps/pastebnn* && cargo build --release
 
 
-FROM node:18-alpine AS builder-frontend
+FROM node:20-alpine AS builder-frontend
 WORKDIR /pastebnn
 COPY ./web .
 RUN npm ci && npm run build
