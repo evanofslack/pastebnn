@@ -1,4 +1,4 @@
-FROM rust:1.63 as builder-backend
+FROM rust:1.83 AS builder-backend
 
 RUN USER=root cargo new --bin pastebnn
 WORKDIR /pastebnn
@@ -10,13 +10,14 @@ COPY . ./
 RUN rm ./target/release/deps/pastebnn* && cargo build --release
 
 
-FROM node:18-alpine as builder-frontend
+FROM node:18-alpine AS builder-frontend
 WORKDIR /pastebnn
 COPY ./web .
-RUN npm ci && npm audit fix && npm run build
+RUN npm ci && npm run build
 
 
-FROM debian:buster-slim
+
+FROM debian:bookworm-slim
 ARG APP=/usr/src/app/pastebnn
 
 RUN apt-get update \
