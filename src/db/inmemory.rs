@@ -13,7 +13,10 @@ pub struct InMemory {
 
 impl InMemory {
     pub async fn new(max_size: usize) -> Result<Self, &'static str> {
-        return Ok(InMemory {db: RwLock::new(HashMap::new()), max_size: max_size})
+        return Ok(InMemory {
+            db: RwLock::new(HashMap::new()),
+            max_size: max_size,
+        });
     }
 }
 
