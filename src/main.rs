@@ -19,6 +19,9 @@ pub struct Settings {
     /// Listening host of http server
     #[clap(long, env("PASTEBNN_API_HOST"), default_value("0.0.0.0"))]
     pub host: String,
+    /// App base url
+    #[clap(long, env("PASTEBNN_APP_URL"), default_value("localhost"))]
+    pub app_url: String,
     /// Log level (same syntax as RUST_LOG)
     #[clap(long, env("PASTEBNN_LOG_LEVEL"), default_value("info"))]
     pub log_level: String,
@@ -55,6 +58,12 @@ pub enum StorageBackend {
 
 type DynStorer = Arc<dyn db::Storer + Send + Sync>;
 
+#[derive(Clone)]
+struct AppState {
+    store: DynStorer,
+    app_url: String,
+}
+
 #[tokio::main]
 async fn main() {
     let settings = Settings::parse();
@@ -65,7 +74,11 @@ async fn main() {
     let store: DynStorer = match settings.storage_backend {
         StorageBackend::InMemory => {
             tracing::info!("using in memory store");
-            Arc::new(db::inmemory::InMemory::new(settings.max_size).await.unwrap())
+            Arc::new(
+                db::inmemory::InMemory::new(settings.max_size)
+                    .await
+                    .unwrap(),
+            )
         }
         StorageBackend::Redis => {
             tracing::info!("using redis store");
@@ -75,11 +88,20 @@ async fn main() {
                 settings.redis_username,
                 settings.redis_password,
             );
-            Arc::new(db::redis::Redis::new(conn_info, settings.max_size).await.unwrap())
+            Arc::new(
+                db::redis::Redis::new(conn_info, settings.max_size)
+                    .await
+                    .unwrap(),
+            )
         }
     };
 
-    let app = create_app(store.clone());
+    let app_state = AppState {
+        store: store.clone(),
+        app_url: settings.app_url,
+    };
+
+    let app = create_app(app_state);
 
     logger::setup(settings.log_level);
 
@@ -106,14 +128,14 @@ async fn main() {
     }
 }
 
-fn create_app(storer: DynStorer) -> Router {
-    let app = handlers::pastes::create_router()
-        .layer(Extension(storer))
+fn create_app(state: AppState) -> Router {
+    handlers::pastes::create_router()
+        .merge(handlers::config::create_router())
+        .layer(Extension(state))
         .merge(handlers::status::create_router())
         .merge(handlers::frontend::create_router())
         .layer(CorsLayer::permissive())
-        .layer(TraceLayer::new_for_http());
-    return app;
+        .layer(TraceLayer::new_for_http())
 }
 
 #[cfg(test)]
@@ -129,7 +151,11 @@ mod tests {
     #[tokio::test]
     async fn root() {
         let mock_store = Arc::new(db::inmemory::InMemory::new(1024).await.unwrap()) as DynStorer;
-        let app = create_app(mock_store);
+        let state = AppState {
+            store: mock_store,
+            app_url: "test".to_string(),
+        };
+        let app = create_app(state);
 
         let resp = app
             .oneshot(Request::builder().uri("/ping").body(Body::empty()).unwrap())
