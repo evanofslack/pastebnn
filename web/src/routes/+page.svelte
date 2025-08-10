@@ -130,7 +130,7 @@
 	<div class="flex flex-row">
 		<!-- burn button -->
 		<label class="mr-4 flex items-center">
-			<p class="text-neutral-300/60 pr-1">burn</p>
+			<p class="text-neutral-300/60 pr-1">burn on read</p>
 			<input class="w-5 h-5 " type="checkbox" bind:checked={burn} />
 		</label>
 
