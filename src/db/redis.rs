@@ -160,6 +160,7 @@ impl Storer for Redis {
 mod tests {
     use super::*;
 
+    #[cfg(feature = "integration-tests")]
     #[tokio::test]
     async fn paste_too_large() {
         // paste new text is 4 bytes while max_size is 3 bytes
@@ -168,6 +169,7 @@ mod tests {
         assert!(db.create(paste.clone()).await.is_err())
     }
 
+    #[cfg(feature = "integration-tests")]
     #[tokio::test]
     async fn create_and_get() {
         let db = Redis::new(ConnInfo::default(), 1024).await.unwrap();
@@ -183,6 +185,7 @@ mod tests {
         assert_eq!(paste, resp);
     }
 
+    #[cfg(feature = "integration-tests")]
     #[tokio::test]
     async fn delete() {
         let db = Redis::new(ConnInfo::default(), 1024).await.unwrap();
@@ -202,6 +205,7 @@ mod tests {
         }
     }
 
+    #[cfg(feature = "integration-tests")]
     #[tokio::test]
     async fn burn_on_read() {
         let db = Redis::new(ConnInfo::default(), 1024).await.unwrap();
