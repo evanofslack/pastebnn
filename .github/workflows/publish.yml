@@ -32,6 +32,9 @@ jobs:
       - name: format check
         run: cargo fmt --all -- --check
 
+      - name: run clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
       - name: run tests
         run: cargo test
 
