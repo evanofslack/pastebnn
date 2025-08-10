@@ -38,8 +38,8 @@ jobs:
       - name: setup node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
           cache-dependency-path: web/package-lock.json
 
       - name: install frontend dependencies
@@ -47,6 +47,8 @@ jobs:
 
       - name: build frontend
         run: cd web && npm run build
+        env:
+          PUBLIC_API_BASE_URL: http://localhost:3000
 
   build:
     runs-on: ubuntu-latest
