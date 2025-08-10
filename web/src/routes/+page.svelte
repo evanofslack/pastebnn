@@ -1,13 +1,22 @@
 <script lang="ts">
     import { goto } from '$app/navigation';
+    import { onMount } from 'svelte';
     import type {CreatePaste} from "../../interfaces"
     import { PUBLIC_API_BASE_URL } from '$env/static/public'
 
     // set base URL if serving from dev server
     const api_base_url = PUBLIC_API_BASE_URL || ""
+    let app_name = "localhost"
 
-    // TODO ui placeholder should eventually be a call to the backend
-    const app_name = "pastebnn.com"
+    onMount(async () => {
+        // Fetch app name from backend on mount
+        try {
+            const res = await fetch(`${api_base_url}/api/config`);
+            const config = await res.json();
+            app_name = config.app_url;
+        } catch (e) {
+        }
+    });
 
     const expire_times = [
         {value: 600,label: '10 min'},
