@@ -13,10 +13,10 @@ pub struct InMemory {
 
 impl InMemory {
     pub async fn new(max_size: usize) -> Result<Self, &'static str> {
-        return Ok(InMemory {
+        Ok(InMemory {
             db: RwLock::new(HashMap::new()),
-            max_size: max_size,
-        });
+            max_size,
+        })
     }
 }
 
@@ -32,7 +32,7 @@ impl Storer for InMemory {
         if found_paste.burn_on_read {
             self.delete(&found_paste.key).await?;
         }
-        return Ok(found_paste);
+        Ok(found_paste)
     }
 
     async fn create(&self, paste: models::Paste) -> Result<(), &'static str> {
@@ -44,13 +44,13 @@ impl Storer for InMemory {
             .write()
             .unwrap()
             .insert(paste.key.clone(), paste.clone());
-        return Ok(());
+        Ok(())
     }
-    async fn delete(&self, key: &String) -> Result<(), &'static str> {
-        if let Some(_) = self.db.write().unwrap().remove(key) {
-            return Ok(());
+    async fn delete(&self, key: &str) -> Result<(), &'static str> {
+        if self.db.write().unwrap().remove(key).is_some() {
+            Ok(())
         } else {
-            return Err("paste not found");
+            Err("paste not found")
         }
     }
     async fn get_expired(&self) -> Vec<models::Paste> {
@@ -68,14 +68,14 @@ impl Storer for InMemory {
                 }
             }
         }
-        return expired;
+        expired
     }
     async fn delete_expired(&self) -> Result<(), &'static str> {
         let expired = self.get_expired().await;
         for paste in expired.iter() {
             self.delete(&paste.key).await?;
         }
-        return Ok(());
+        Ok(())
     }
 }
 

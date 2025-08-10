@@ -46,11 +46,11 @@ impl Paste {
         };
         Self {
             id: Uuid::new_v4(),
-            created: created,
-            expires: expires,
-            burn_on_read: burn_on_read,
-            key: key,
-            text: text,
+            created,
+            expires,
+            burn_on_read,
+            key,
+            text,
         }
     }
 }
