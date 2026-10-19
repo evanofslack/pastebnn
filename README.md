@@ -51,6 +51,36 @@ services:
 ```
 
 
+## configuration
+
+all settings are environment variables:
+
+| variable | default | description |
+| --- | --- | --- |
+| `PASTEBNN_API_HOST` | `0.0.0.0` | listening host |
+| `PASTEBNN_API_PORT` | `8080` | listening port |
+| `PASTEBNN_APP_URL` | `localhost` | base url shown in the ui (visual only) |
+| `PASTEBNN_LOG_LEVEL` | `info` | log level (`RUST_LOG` syntax) |
+| `PASTEBNN_MAX_SIZE_BYTES` | `1024` | max size of a single paste |
+| `PASTEBNN_MAX_TOTAL_BYTES` | `268435456` | max combined size of all pastes (in memory store only) |
+| `PASTEBNN_MAX_EXPIRE_SECONDS` | `2592000` | max lifetime of an expiring paste (30 days) |
+| `PASTEBNN_PURGE_PERIOD` | `60` | seconds between purging expired pastes |
+| `PASTEBNN_RATE_LIMIT_PER_MINUTE` | `60` | paste api requests per minute per client ip, `0` disables |
+| `PASTEBNN_TRUST_PROXY` | `false` | use the rightmost `X-Forwarded-For` entry as client ip. only enable behind a reverse proxy |
+| `PASTEBNN_STORAGE_BACKEND` | `in-memory` | `in-memory` or `redis` |
+| `PASTEBNN_REDIS_HOST` / `_PORT` / `_USERNAME` / `_PASSWORD` | | redis connection |
+
+when using redis, cap its memory (e.g. `--maxmemory 256mb --maxmemory-policy noeviction`) since `PASTEBNN_MAX_TOTAL_BYTES` does not apply.
+
+## api
+
+- `POST /api/paste` with `{"text": "...", "key": null, "seconds_until_expire": 600, "burn_on_read": false}`
+  - `key` is optional. when omitted a random 10 character key is generated. custom keys are 1-64 chars of `[A-Za-z0-9_-]`
+  - returns `201` with the paste and a `delete_token`. the token is only returned here
+  - errors: `400` invalid input, `409` key taken, `413` too large, `429` rate limited, `507` storage full
+- `GET /api/paste/:key` returns the paste, `404` if missing, expired or already burned
+- `DELETE /api/paste/:key` with header `X-Delete-Token: <token>`, `403` if the token is missing or wrong
+
 ## design
 
 server: json rest api w/ tokio, axum and serde. 

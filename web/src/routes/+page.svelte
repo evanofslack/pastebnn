@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { onMount } from 'svelte';
-	import type { CreatePaste } from '../../interfaces';
+	import { saveDeleteToken, type CreatePaste, type CreatedPaste } from '../../interfaces';
 
 	let app_name = 'localhost';
 
@@ -28,13 +28,21 @@
 	let key = '';
 	let expires = default_expire;
 	let burn = false;
-	let placeholder = randomKey();
+	let error = '';
+
+	const errorMessages: Record<number, string> = {
+		400: 'invalid paste: keys may only use letters, numbers, - and _',
+		409: 'that key is already taken',
+		413: 'paste is too large',
+		429: 'too many requests, try again in a minute',
+		507: 'server storage is full'
+	};
 
 	async function handleSubmit() {
-		let endpoint = `/api/paste`;
+		error = '';
 		let paste: CreatePaste = {
 			text: text,
-			key: key ? key : placeholder,
+			key: key ? key : null,
 			seconds_until_expire: expires.value,
 			burn_on_read: burn
 		};
@@ -44,73 +52,23 @@
 			body: JSON.stringify(paste)
 		};
 
-		let res = await fetch(endpoint, requestOptions);
+		let res: Response;
+		try {
+			res = await fetch('/api/paste', requestOptions);
+		} catch (e) {
+			error = 'could not reach server';
+			return;
+		}
+		if (!res.ok) {
+			error = errorMessages[res.status] ?? 'something went wrong';
+			return;
+		}
+
+		const created: CreatedPaste = await res.json();
+		saveDeleteToken(created.key, created.delete_token);
 
 		// redirect to paste url
-		goto(`/${paste.key}`, { replaceState: false });
-	}
-
-	function randomKey(): string {
-		let adjectives = [
-			'young',
-			'old',
-			'small',
-			'large',
-			'cute',
-			'ugly',
-			'sly',
-			'overt',
-			'loud',
-			'quiet',
-			'crazy',
-			'tame',
-			'smart',
-			'dumb',
-			'lazy',
-			'weak',
-			'strong',
-			'fast',
-			'slow',
-			'fat',
-			'thin',
-			'hot',
-			'cold',
-			'wild',
-			'tame',
-			'wet',
-			'dry',
-			'rich',
-			'poor',
-			'sad',
-			'happy',
-			'rowdy'
-		];
-		let nouns = [
-			'lion',
-			'trout',
-			'ant',
-			'hawk',
-			'moose',
-			'swan',
-			'goat',
-			'slug',
-			'mole',
-			'toad',
-			'wolf',
-			'crab',
-			'ox',
-			'seal',
-			'fox',
-			'moth',
-			'worm',
-			'yak',
-			'loon',
-			'deer',
-			'hen'
-		];
-		const randAdj = Math.floor(Math.random() * adjectives.length);
-		const randNoun = Math.floor(Math.random() * nouns.length);
-		return adjectives[randAdj] + '-' + nouns[randNoun];
+		goto(`/${created.key}`, { replaceState: false });
 	}
 </script>
 
@@ -123,7 +81,8 @@
 		<input
 			class="mr-4 border-y border-r py-2 pr-2 bg-zinc-800 border-zinc-700 text-neutral-300 placeholder-neutral-300/20 focus:outline-none"
 			bind:value={key}
-			{placeholder}
+			placeholder="random"
+			maxlength="64"
 		/>
 	</div>
 
@@ -155,6 +114,10 @@
 		</div>
 	</div>
 </div>
+
+{#if error}
+	<p class="mb-4 text-red-400/80">{error}</p>
+{/if}
 
 <!-- text area -->
 <textarea

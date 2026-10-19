@@ -7,6 +7,7 @@ mod db;
 mod handlers;
 mod logger;
 mod models;
+mod ratelimit;
 
 #[derive(Parser, Debug)]
 #[clap(
@@ -31,6 +32,18 @@ pub struct Settings {
     /// Max size of paste in bytes
     #[clap(long, env("PASTEBNN_MAX_SIZE_BYTES"), default_value("1024"))]
     pub max_size: usize,
+    /// Max combined size of all pastes in bytes (in memory storage only)
+    #[clap(long, env("PASTEBNN_MAX_TOTAL_BYTES"), default_value("268435456"))]
+    pub max_total_bytes: usize,
+    /// Max lifetime of an expiring paste in seconds
+    #[clap(long, env("PASTEBNN_MAX_EXPIRE_SECONDS"), default_value("2592000"))]
+    pub max_expire_seconds: u64,
+    /// Max paste API requests per minute per client IP (0 disables)
+    #[clap(long, env("PASTEBNN_RATE_LIMIT_PER_MINUTE"), default_value("60"))]
+    pub rate_limit_per_minute: u32,
+    /// Use X-Forwarded-For for client IP (only enable behind a reverse proxy)
+    #[clap(long, env("PASTEBNN_TRUST_PROXY"), default_value("false"), action = clap::ArgAction::Set)]
+    pub trust_proxy: bool,
 
     /// Storage backend
     #[clap(value_enum, default_value_t=StorageBackend::InMemory, env("PASTEBNN_STORAGE_BACKEND"))]
@@ -62,11 +75,15 @@ type DynStorer = Arc<dyn db::Storer + Send + Sync>;
 struct AppState {
     store: DynStorer,
     app_url: String,
+    max_size: usize,
+    max_expire_seconds: u64,
 }
 
 #[tokio::main]
 async fn main() {
     let settings = Settings::parse();
+    logger::setup(settings.log_level);
+
     let addr = format!("{}:{}", settings.host, settings.port)
         .parse::<SocketAddr>()
         .expect("failed to parse socket address");
@@ -75,7 +92,7 @@ async fn main() {
         StorageBackend::InMemory => {
             tracing::info!("using in memory store");
             Arc::new(
-                db::inmemory::InMemory::new(settings.max_size)
+                db::inmemory::InMemory::new(settings.max_size, settings.max_total_bytes)
                     .await
                     .unwrap(),
             )
@@ -99,15 +116,19 @@ async fn main() {
     let app_state = AppState {
         store: store.clone(),
         app_url: settings.app_url,
+        max_size: settings.max_size,
+        max_expire_seconds: settings.max_expire_seconds,
     };
+    let limiter = Arc::new(ratelimit::RateLimiter::new(
+        settings.rate_limit_per_minute,
+        settings.trust_proxy,
+    ));
 
-    let app = create_app(app_state);
-
-    logger::setup(settings.log_level);
+    let app = create_app(app_state, limiter.clone());
 
     tracing::info!("pastebnn server listening on {}", addr);
     let server = axum::Server::bind(&addr)
-        .serve(app.into_make_service())
+        .serve(app.into_make_service_with_connect_info::<SocketAddr>())
         .with_graceful_shutdown(async {
             tokio::signal::ctrl_c()
                 .await
@@ -120,16 +141,13 @@ async fn main() {
                 tracing::error!("error: {}", error)
             }
         },
-        res = store.delete_periodically(settings.purge_period) => {
-            if let Err(error) = res {
-                tracing::error!("error: {}", error)
-            }
-        }
+        _ = store.delete_periodically(settings.purge_period) => {},
+        _ = limiter.sweep_periodically() => {},
     }
 }
 
-fn create_app(state: AppState) -> Router {
-    handlers::pastes::create_router()
+fn create_app(state: AppState, limiter: Arc<ratelimit::RateLimiter>) -> Router {
+    handlers::pastes::create_router(limiter)
         .merge(handlers::config::create_router())
         .layer(Extension(state))
         .merge(handlers::status::create_router())
@@ -143,19 +161,64 @@ mod tests {
     use super::*;
     use axum::{
         body::Body,
-        http::{Request, StatusCode},
+        extract::ConnectInfo,
+        http::{Request, Response, StatusCode},
     };
+    use serde_json::{json, Value};
     use tower::ServiceExt;
-    // use hyper::body;
 
-    #[tokio::test]
-    async fn root() {
-        let mock_store = Arc::new(db::inmemory::InMemory::new(1024).await.unwrap()) as DynStorer;
+    async fn test_app(max_size: usize, rate_limit: u32) -> Router {
+        let mock_store = Arc::new(
+            db::inmemory::InMemory::new(max_size, 1024 * 1024)
+                .await
+                .unwrap(),
+        ) as DynStorer;
         let state = AppState {
             store: mock_store,
             app_url: "test".to_string(),
+            max_size,
+            max_expire_seconds: 3600,
         };
-        let app = create_app(state);
+        create_app(
+            state,
+            Arc::new(ratelimit::RateLimiter::new(rate_limit, false)),
+        )
+    }
+
+    fn post_paste(body: Value) -> Request<Body> {
+        Request::builder()
+            .method("POST")
+            .uri("/api/paste")
+            .header("content-type", "application/json")
+            .body(Body::from(body.to_string()))
+            .unwrap()
+    }
+
+    fn delete_paste(key: &str, token: Option<&str>) -> Request<Body> {
+        let mut req = Request::builder()
+            .method("DELETE")
+            .uri(format!("/api/paste/{}", key));
+        if let Some(token) = token {
+            req = req.header("x-delete-token", token);
+        }
+        req.body(Body::empty()).unwrap()
+    }
+
+    fn get_paste(key: &str) -> Request<Body> {
+        Request::builder()
+            .uri(format!("/api/paste/{}", key))
+            .body(Body::empty())
+            .unwrap()
+    }
+
+    async fn json_body(resp: Response<axum::body::BoxBody>) -> Value {
+        let bytes = hyper::body::to_bytes(resp.into_body()).await.unwrap();
+        serde_json::from_slice(&bytes).unwrap()
+    }
+
+    #[tokio::test]
+    async fn root() {
+        let app = test_app(1024, 0).await;
 
         let resp = app
             .oneshot(Request::builder().uri("/ping").body(Body::empty()).unwrap())
@@ -163,8 +226,134 @@ mod tests {
             .unwrap();
 
         assert_eq!(resp.status(), StatusCode::NO_CONTENT);
+    }
 
-        // let body = body::to_bytes(resp.into_body()).await.unwrap();
-        // assert_eq!(&body[..], b"hello world");
+    #[tokio::test]
+    async fn create_generates_key_and_token() {
+        let app = test_app(1024, 0).await;
+
+        let resp = app
+            .clone()
+            .oneshot(post_paste(json!({"text": "hello", "burn_on_read": false})))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::CREATED);
+        let created = json_body(resp).await;
+        let key = created["key"].as_str().unwrap();
+        assert_eq!(key.len(), models::GENERATED_KEY_LEN);
+        assert_eq!(created["delete_token"].as_str().unwrap().len(), 32);
+
+        let resp = app.oneshot(get_paste(key)).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let fetched = json_body(resp).await;
+        assert_eq!(fetched["text"], "hello");
+        assert!(fetched.get("delete_token").is_none());
+    }
+
+    #[tokio::test]
+    async fn delete_requires_token() {
+        let app = test_app(1024, 0).await;
+        let resp = app
+            .clone()
+            .oneshot(post_paste(json!({"key": "mine", "text": "hello"})))
+            .await
+            .unwrap();
+        let token = json_body(resp).await["delete_token"]
+            .as_str()
+            .unwrap()
+            .to_string();
+
+        let resp = app
+            .clone()
+            .oneshot(delete_paste("mine", None))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+        let resp = app
+            .clone()
+            .oneshot(delete_paste("mine", Some("wrong")))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::FORBIDDEN);
+        let resp = app
+            .clone()
+            .oneshot(delete_paste("missing", Some(&token)))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+
+        let resp = app
+            .clone()
+            .oneshot(delete_paste("mine", Some(&token)))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+        let resp = app.oneshot(get_paste("mine")).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    }
+
+    #[tokio::test]
+    async fn create_rejects_bad_input() {
+        let app = test_app(8, 0).await;
+        let cases = [
+            (json!({"key": "dup", "text": "a"}), StatusCode::CREATED),
+            (json!({"key": "dup", "text": "b"}), StatusCode::CONFLICT),
+            (
+                json!({"key": "bad key", "text": "a"}),
+                StatusCode::BAD_REQUEST,
+            ),
+            (json!({"text": "123456789"}), StatusCode::PAYLOAD_TOO_LARGE),
+            (
+                json!({"text": "a", "seconds_until_expire": 3601}),
+                StatusCode::BAD_REQUEST,
+            ),
+            (
+                json!({"text": "a", "seconds_until_expire": 0}),
+                StatusCode::BAD_REQUEST,
+            ),
+            (json!({"nope": true}), StatusCode::BAD_REQUEST),
+        ];
+        for (body, status) in cases {
+            let resp = app.clone().oneshot(post_paste(body.clone())).await.unwrap();
+            assert_eq!(resp.status(), status, "body: {}", body);
+        }
+    }
+
+    #[tokio::test]
+    async fn oversized_body_rejected() {
+        let app = test_app(8, 0).await;
+        let resp = app
+            .oneshot(post_paste(json!({"text": "a".repeat(1024 * 1024)})))
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::PAYLOAD_TOO_LARGE);
+    }
+
+    #[tokio::test]
+    async fn rate_limited() {
+        let app = test_app(1024, 2).await;
+        let addr = ConnectInfo(SocketAddr::from(([1, 2, 3, 4], 5000)));
+        let mut statuses = Vec::new();
+        for _ in 0..3 {
+            let mut req = get_paste("missing");
+            req.extensions_mut().insert(addr);
+            statuses.push(app.clone().oneshot(req).await.unwrap().status());
+        }
+        assert_eq!(
+            statuses,
+            [
+                StatusCode::NOT_FOUND,
+                StatusCode::NOT_FOUND,
+                StatusCode::TOO_MANY_REQUESTS
+            ]
+        );
+
+        // non paste routes are not limited
+        let mut req = Request::builder().uri("/ping").body(Body::empty()).unwrap();
+        req.extensions_mut().insert(addr);
+        assert_eq!(
+            app.oneshot(req).await.unwrap().status(),
+            StatusCode::NO_CONTENT
+        );
     }
 }
