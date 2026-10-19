@@ -13,10 +13,9 @@ https://bin.evanslack.dev
 
 ## installation
 
-host a local instance with docker:
+host a local instance with docker (pastes are kept in memory and lost on restart):
 
 ```yaml
-version: "3.7"
 services:
   pastebnn:
     image: evanofslack/pastebnn:latest
@@ -26,30 +25,34 @@ services:
       PASTEBNN_APP_URL: "bin.mysite.com" # visual effect only
     ports:
       - "8080:8080"
-
 ```
 
-or persist pastes with redis:
-```yaml
-version: "3.7"
-services:
-  redis:
-    image: redis:latest
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-  pastebnn:
-    image: evanofslack/pastebnn:latest
-    restart: unless-stopped
-    environment:
-      PASTEBNN_STORAGE_BACKEND: "redis"
-      PASTEBNN_REDIS_HOST: "redis"
-      PASTEBNN_REDIS_PORT: 6379
-    ports:
-      - "8080:8080"
+or persist pastes with redis using the [`docker-compose.yml`](docker-compose.yml) in this repo:
 
+```sh
+echo "REDIS_PASSWORD=$(openssl rand -hex 32)" > .env
+docker compose up -d
 ```
 
+redis is password protected, capped at 256mb, stores data in a named volume and is not published to the host.
+
+## running publicly
+
+- put pastebnn behind a reverse proxy (caddy, nginx, traefik) that terminates TLS
+- set `PASTEBNN_TRUST_PROXY=true` so rate limits apply per client rather than to the proxy's ip. leave it off when exposed directly, since clients could spoof `X-Forwarded-For`
+- bind the port to localhost when the proxy runs on the same host (`"127.0.0.1:8080:8080"`)
+- tune `PASTEBNN_MAX_SIZE_BYTES`, `PASTEBNN_RATE_LIMIT_PER_MINUTE` and redis `--maxmemory` to your host
+- anyone can create pastes, so expect abuse reports and have a way to remove content
+
+## development
+
+```sh
+cargo run                    # api + built frontend on :8080
+cd web && npm run dev        # frontend dev server, proxies /api to :8080
+REDIS_PASSWORD=dev docker compose -f docker-compose-dev.yaml up --build
+```
+
+requires rust 1.88+ and node 24+.
 
 ## configuration
 
@@ -68,9 +71,11 @@ all settings are environment variables:
 | `PASTEBNN_RATE_LIMIT_PER_MINUTE` | `60` | paste api requests per minute per client ip, `0` disables |
 | `PASTEBNN_TRUST_PROXY` | `false` | use the rightmost `X-Forwarded-For` entry as client ip. only enable behind a reverse proxy |
 | `PASTEBNN_STORAGE_BACKEND` | `in-memory` | `in-memory` or `redis` |
-| `PASTEBNN_REDIS_HOST` / `_PORT` / `_USERNAME` / `_PASSWORD` | | redis connection |
+| `PASTEBNN_REDIS_HOST` | | redis host, required when using redis |
+| `PASTEBNN_REDIS_PORT` | `6379` | redis port |
+| `PASTEBNN_REDIS_USERNAME` / `PASTEBNN_REDIS_PASSWORD` | | redis credentials |
 
-when using redis, cap its memory (e.g. `--maxmemory 256mb --maxmemory-policy noeviction`) since `PASTEBNN_MAX_TOTAL_BYTES` does not apply.
+when using redis, cap its memory (the bundled compose uses `--maxmemory 256mb --maxmemory-policy noeviction`) since `PASTEBNN_MAX_TOTAL_BYTES` does not apply.
 
 ## api
 

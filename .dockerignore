@@ -1,0 +1,9 @@
+.git
+.github
+target
+web/node_modules
+web/build
+web/.svelte-kit
+**/.env
+**/.env.*
+**/.DS_Store
