@@ -3,8 +3,8 @@ extern crate redis;
 
 use crate::db::{StoreError, Storer};
 use crate::models;
-use redis::aio::ConnectionManager;
 use redis::AsyncCommands;
+use redis::aio::ConnectionManager;
 use serde_json;
 
 pub struct Redis {
@@ -15,7 +15,7 @@ pub struct Redis {
 #[derive(Debug)]
 pub struct ConnInfo {
     hostname: String,
-    port: i32,
+    port: u16,
     username: Option<String>,
     password: Option<String>,
 }
@@ -34,7 +34,7 @@ impl Default for ConnInfo {
 impl ConnInfo {
     pub fn new(
         hostname: String,
-        port: i32,
+        port: u16,
         username: Option<String>,
         password: Option<String>,
     ) -> Self {
