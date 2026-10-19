@@ -7,8 +7,7 @@ async fn handle_error(_err: io::Error) -> impl IntoResponse {
 }
 
 pub fn create_router() -> Router {
-    let serve_dir =
-        ServeDir::new("web/build").not_found_service(ServeFile::new("web/build/200.html"));
+    let serve_dir = ServeDir::new("web/build").fallback(ServeFile::new("web/build/200.html"));
     let serve_dir = get_service(serve_dir).handle_error(handle_error);
 
     Router::new().fallback(serve_dir)

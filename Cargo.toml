@@ -25,3 +25,4 @@ axum-macros = "0.2.3"
 async-trait = "0.1.57"
 clap = { version = "3.1", features = ["derive", "env"] }
 redis = { version = "0.22.1", features = ["tokio-comp", "json", "aio", "connection-manager"] }
+rand = "0.8"
