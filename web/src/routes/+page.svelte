@@ -1,9 +1,10 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { onMount } from 'svelte';
 	import { saveDeleteToken, type CreatePaste, type CreatedPaste } from '../../interfaces';
 
-	let app_name = 'localhost';
+	let app_name = $state('localhost');
 
 	onMount(async () => {
 		// Fetch app name from backend on mount
@@ -11,7 +12,9 @@
 			const res = await fetch('/api/config');
 			const config = await res.json();
 			app_name = config.app_url;
-		} catch (e) {}
+		} catch {
+			// keep default name
+		}
 	});
 
 	const expire_times = [
@@ -24,11 +27,11 @@
 	];
 	const default_expire = expire_times[0];
 
-	let text = '';
-	let key = '';
-	let expires = default_expire;
-	let burn = false;
-	let error = '';
+	let text = $state('');
+	let key = $state('');
+	let expires = $state(default_expire);
+	let burn = $state(false);
+	let error = $state('');
 
 	const errorMessages: Record<number, string> = {
 		400: 'invalid paste: keys may only use letters, numbers, - and _',
@@ -55,7 +58,7 @@
 		let res: Response;
 		try {
 			res = await fetch('/api/paste', requestOptions);
-		} catch (e) {
+		} catch {
 			error = 'could not reach server';
 			return;
 		}
@@ -68,7 +71,7 @@
 		saveDeleteToken(created.key, created.delete_token);
 
 		// redirect to paste url
-		goto(`/${created.key}`, { replaceState: false });
+		goto(resolve('/[slug]', { slug: created.key }));
 	}
 </script>
 
@@ -90,14 +93,14 @@
 		<!-- burn button -->
 		<label class="mr-4 flex items-center">
 			<p class="text-neutral-300/60 pr-1">burn on read</p>
-			<input class="w-5 h-5 " type="checkbox" bind:checked={burn} />
+			<input class="w-5 h-5" type="checkbox" bind:checked={burn} />
 		</label>
 
 		<!-- expiration dropdown-->
 		<div class="flex items-center mr-4">
 			<p class="text-neutral-300/60 mr-1">expire</p>
 			<select class="p-2" bind:value={expires} placeholder={default_expire.label}>
-				{#each expire_times as time}
+				{#each expire_times as time (time.label)}
 					<option value={time}>
 						{time.label}
 					</option>
@@ -109,7 +112,7 @@
 		<div>
 			<button
 				class="p-2 ml-2 bg-sky-900/60 border border-sky-900/90 text-neutral-300 hover:text-neutral-300 hover:bg-sky-500/30 hover:border-sky-300/40"
-				on:click={handleSubmit}>submit</button
+				onclick={handleSubmit}>submit</button
 			>
 		</div>
 	</div>
@@ -123,5 +126,4 @@
 <textarea
 	placeholder="enter you paste..."
 	class="w-full h-2/3 border p-2 bg-zinc-800 border-zinc-700 text-neutral-300 placeholder-neutral-300/20 focus:border-zinc-600 focus:outline-none"
-	bind:value={text}
-/>
+	bind:value={text}></textarea>
