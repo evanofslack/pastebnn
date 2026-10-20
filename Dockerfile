@@ -1,4 +1,4 @@
-FROM rust:1.97-slim-trixie AS builder-backend
+FROM rust:1.99-slim-trixie AS builder-backend
 WORKDIR /pastebnn
 
 # build dependencies on their own layer so source changes reuse the cache
