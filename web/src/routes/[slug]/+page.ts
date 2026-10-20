@@ -1,6 +1,5 @@
-import type { LoadEvent } from '@sveltejs/kit';
+import type { PageLoad } from './$types';
 
-export async function load({ fetch, params }: LoadEvent) {
-	const pasteID = params.slug;
-	return { pasteID: pasteID };
-}
+export const load: PageLoad = ({ params }) => {
+	return { pasteID: params.slug };
+};

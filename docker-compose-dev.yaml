@@ -1,10 +1,23 @@
-version: "3.7"
+# local development build: REDIS_PASSWORD=dev docker compose -f docker-compose-dev.yaml up --build
 services:
   redis:
-    image: redis:latest
+    image: redis:8-alpine
     restart: unless-stopped
-    ports:
-      - "6379:6379"
+    command: >
+      redis-server
+      --requirepass "${REDIS_PASSWORD:?set REDIS_PASSWORD}"
+      --maxmemory 256mb
+      --maxmemory-policy noeviction
+      --appendonly yes
+    environment:
+      REDISCLI_AUTH: ${REDIS_PASSWORD}
+    volumes:
+      - redis-data-dev:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
   pastebnn:
     build: .
     restart: unless-stopped
@@ -12,11 +25,15 @@ services:
       PASTEBNN_API_HOST: "0.0.0.0"
       PASTEBNN_API_PORT: 8080
       PASTEBNN_LOG_LEVEL: "debug"
-      PASTEBNN_MAX_SIZE_BYTES: 104857600 # 100MB
+      PASTEBNN_MAX_SIZE_BYTES: 1048576 # 1MB
       PASTEBNN_STORAGE_BACKEND: "redis"
       PASTEBNN_REDIS_HOST: "redis"
-      PASTEBNN_REDIS_PORT: 6379
+      PASTEBNN_REDIS_PASSWORD: ${REDIS_PASSWORD}
     ports:
       - 9999:8080
     depends_on:
-      - "redis"
+      redis:
+        condition: service_healthy
+
+volumes:
+  redis-data-dev:

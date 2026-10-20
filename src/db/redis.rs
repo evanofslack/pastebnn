@@ -4,7 +4,7 @@ extern crate redis;
 use crate::db::{StoreError, Storer};
 use crate::models;
 use redis::aio::ConnectionManager;
-use redis::AsyncCommands;
+use redis::{AsyncCommands, ConnectionAddr, IntoConnectionInfo, RedisConnectionInfo};
 use serde_json;
 
 pub struct Redis {
@@ -15,7 +15,7 @@ pub struct Redis {
 #[derive(Debug)]
 pub struct ConnInfo {
     hostname: String,
-    port: i32,
+    port: u16,
     username: Option<String>,
     password: Option<String>,
 }
@@ -34,7 +34,7 @@ impl Default for ConnInfo {
 impl ConnInfo {
     pub fn new(
         hostname: String,
-        port: i32,
+        port: u16,
         username: Option<String>,
         password: Option<String>,
     ) -> Self {
@@ -54,15 +54,19 @@ fn internal(err: impl std::fmt::Display) -> StoreError {
 
 impl Redis {
     pub async fn new(conn_info: ConnInfo, max_size: usize) -> Result<Self, StoreError> {
-        // expected format -> redis://[<username>][:<password>@]<hostname>[:port][/<db>]
-        let conn_url = format!(
-            "redis://{}:{}@{}:{}",
-            conn_info.username.unwrap_or_default(),
-            conn_info.password.unwrap_or_default(),
-            conn_info.hostname,
-            conn_info.port
-        );
-        let client = redis::Client::open(conn_url).map_err(internal)?;
+        // build connection info directly rather than via a URL so credentials need no escaping
+        let mut settings = RedisConnectionInfo::default();
+        if let Some(username) = conn_info.username {
+            settings = settings.set_username(username);
+        }
+        if let Some(password) = conn_info.password {
+            settings = settings.set_password(password);
+        }
+        let info = ConnectionAddr::Tcp(conn_info.hostname, conn_info.port)
+            .into_connection_info()
+            .map_err(internal)?
+            .set_redis_settings(settings);
+        let client = redis::Client::open(info).map_err(internal)?;
         let conn = ConnectionManager::new(client).await.map_err(internal)?;
         Ok(Redis { conn, max_size })
     }

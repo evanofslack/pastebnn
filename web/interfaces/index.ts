@@ -23,13 +23,15 @@ const tokenStorageKey = (key: string) => `pastebnn:token:${key}`;
 export function saveDeleteToken(key: string, token: string) {
 	try {
 		localStorage.setItem(tokenStorageKey(key), token);
-	} catch (e) {}
+	} catch {
+		// storage unavailable (private mode, blocked site data)
+	}
 }
 
 export function loadDeleteToken(key: string): string | null {
 	try {
 		return localStorage.getItem(tokenStorageKey(key));
-	} catch (e) {
+	} catch {
 		return null;
 	}
 }
@@ -37,5 +39,7 @@ export function loadDeleteToken(key: string): string | null {
 export function clearDeleteToken(key: string) {
 	try {
 		localStorage.removeItem(tokenStorageKey(key));
-	} catch (e) {}
+	} catch {
+		// storage unavailable (private mode, blocked site data)
+	}
 }

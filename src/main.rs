@@ -1,7 +1,7 @@
-use axum::{extract::Extension, Router};
-use clap::{Parser, ValueEnum};
+use axum::Router;
+use clap::{ArgAction, Parser, ValueEnum};
 use std::{net::SocketAddr, sync::Arc};
-use tower_http::{cors::CorsLayer, trace::TraceLayer};
+use tower_http::trace::TraceLayer;
 
 mod db;
 mod handlers;
@@ -10,57 +10,59 @@ mod models;
 mod ratelimit;
 
 #[derive(Parser, Debug)]
-#[clap(
-    version, author = env!("CARGO_PKG_HOMEPAGE"), about,
-)]
+#[command(version, about)]
 pub struct Settings {
     /// Listening port of http server
-    #[clap(long, env("PASTEBNN_API_PORT"), default_value("8080"))]
+    #[arg(long, env = "PASTEBNN_API_PORT", default_value_t = 8080)]
     pub port: u16,
     /// Listening host of http server
-    #[clap(long, env("PASTEBNN_API_HOST"), default_value("0.0.0.0"))]
+    #[arg(long, env = "PASTEBNN_API_HOST", default_value = "0.0.0.0")]
     pub host: String,
     /// App base url
-    #[clap(long, env("PASTEBNN_APP_URL"), default_value("localhost"))]
+    #[arg(long, env = "PASTEBNN_APP_URL", default_value = "localhost")]
     pub app_url: String,
     /// Log level (same syntax as RUST_LOG)
-    #[clap(long, env("PASTEBNN_LOG_LEVEL"), default_value("info"))]
+    #[arg(long, env = "PASTEBNN_LOG_LEVEL", default_value = "info")]
     pub log_level: String,
     /// Time in seconds between clearing expired pastes
-    #[clap(long, env("PASTEBNN_PURGE_PERIOD"), default_value("60"))]
+    #[arg(long, env = "PASTEBNN_PURGE_PERIOD", default_value_t = 60)]
     pub purge_period: u64,
     /// Max size of paste in bytes
-    #[clap(long, env("PASTEBNN_MAX_SIZE_BYTES"), default_value("1024"))]
+    #[arg(long, env = "PASTEBNN_MAX_SIZE_BYTES", default_value_t = 1024)]
     pub max_size: usize,
     /// Max combined size of all pastes in bytes (in memory storage only)
-    #[clap(long, env("PASTEBNN_MAX_TOTAL_BYTES"), default_value("268435456"))]
+    #[arg(long, env = "PASTEBNN_MAX_TOTAL_BYTES", default_value_t = 256 * 1024 * 1024)]
     pub max_total_bytes: usize,
     /// Max lifetime of an expiring paste in seconds
-    #[clap(long, env("PASTEBNN_MAX_EXPIRE_SECONDS"), default_value("2592000"))]
+    #[arg(long, env = "PASTEBNN_MAX_EXPIRE_SECONDS", default_value_t = 30 * 24 * 3600)]
     pub max_expire_seconds: u64,
     /// Max paste API requests per minute per client IP (0 disables)
-    #[clap(long, env("PASTEBNN_RATE_LIMIT_PER_MINUTE"), default_value("60"))]
+    #[arg(long, env = "PASTEBNN_RATE_LIMIT_PER_MINUTE", default_value_t = 60)]
     pub rate_limit_per_minute: u32,
     /// Use X-Forwarded-For for client IP (only enable behind a reverse proxy)
-    #[clap(long, env("PASTEBNN_TRUST_PROXY"), default_value("false"), action = clap::ArgAction::Set)]
+    #[arg(long, env = "PASTEBNN_TRUST_PROXY", default_value_t = false, action = ArgAction::Set)]
     pub trust_proxy: bool,
 
     /// Storage backend
-    #[clap(value_enum, default_value_t=StorageBackend::InMemory, env("PASTEBNN_STORAGE_BACKEND"))]
+    #[arg(long, value_enum, env = "PASTEBNN_STORAGE_BACKEND", default_value_t = StorageBackend::InMemory)]
     pub storage_backend: StorageBackend,
 
     /// Redis username
-    #[clap(long, env("PASTEBNN_REDIS_USERNAME"))]
+    #[arg(long, env = "PASTEBNN_REDIS_USERNAME")]
     pub redis_username: Option<String>,
     /// Redis password
-    #[clap(long, env("PASTEBNN_REDIS_PASSWORD"))]
+    #[arg(long, env = "PASTEBNN_REDIS_PASSWORD", hide_env_values = true)]
     pub redis_password: Option<String>,
-    /// Redis host
-    #[clap(long, env("PASTEBNN_REDIS_HOST"))]
+    /// Redis host (required for redis storage)
+    #[arg(
+        long,
+        env = "PASTEBNN_REDIS_HOST",
+        required_if_eq("storage_backend", "redis")
+    )]
     pub redis_host: Option<String>,
     /// Redis port
-    #[clap(long, env("PASTEBNN_REDIS_PORT"))]
-    pub redis_port: Option<i32>,
+    #[arg(long, env = "PASTEBNN_REDIS_PORT", default_value_t = 6379)]
+    pub redis_port: u16,
 }
 
 #[derive(ValueEnum, Clone, Debug)]
@@ -82,7 +84,7 @@ struct AppState {
 #[tokio::main]
 async fn main() {
     let settings = Settings::parse();
-    logger::setup(settings.log_level);
+    logger::setup(&settings.log_level);
 
     let addr = format!("{}:{}", settings.host, settings.port)
         .parse::<SocketAddr>()
@@ -94,21 +96,21 @@ async fn main() {
             Arc::new(
                 db::inmemory::InMemory::new(settings.max_size, settings.max_total_bytes)
                     .await
-                    .unwrap(),
+                    .expect("failed to create in memory store"),
             )
         }
         StorageBackend::Redis => {
             tracing::info!("using redis store");
             let conn_info = db::redis::ConnInfo::new(
-                settings.redis_host.unwrap(),
-                settings.redis_port.unwrap(),
+                settings.redis_host.expect("redis host is required"),
+                settings.redis_port,
                 settings.redis_username,
                 settings.redis_password,
             );
             Arc::new(
                 db::redis::Redis::new(conn_info, settings.max_size)
                     .await
-                    .unwrap(),
+                    .expect("failed to connect to redis"),
             )
         }
     };
@@ -126,14 +128,15 @@ async fn main() {
 
     let app = create_app(app_state, limiter.clone());
 
+    let listener = tokio::net::TcpListener::bind(addr)
+        .await
+        .expect("failed to bind listener");
     tracing::info!("pastebnn server listening on {}", addr);
-    let server = axum::Server::bind(&addr)
-        .serve(app.into_make_service_with_connect_info::<SocketAddr>())
-        .with_graceful_shutdown(async {
-            tokio::signal::ctrl_c()
-                .await
-                .expect("failed to listen to ctrl-c");
-        });
+    let server = axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal());
 
     tokio::select! {
         res = server => {
@@ -146,13 +149,36 @@ async fn main() {
     }
 }
 
+/// Resolve on ctrl-c or SIGTERM (sent by `docker stop`)
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to listen for ctrl-c");
+    };
+    #[cfg(unix)]
+    let terminate = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("failed to listen for SIGTERM")
+            .recv()
+            .await;
+    };
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
+    tracing::info!("shutting down");
+}
+
 fn create_app(state: AppState, limiter: Arc<ratelimit::RateLimiter>) -> Router {
-    handlers::pastes::create_router(limiter)
+    handlers::pastes::create_router(state.max_size, limiter)
         .merge(handlers::config::create_router())
-        .layer(Extension(state))
+        .with_state(state)
         .merge(handlers::status::create_router())
         .merge(handlers::frontend::create_router())
-        .layer(CorsLayer::permissive())
         .layer(TraceLayer::new_for_http())
 }
 
@@ -164,7 +190,7 @@ mod tests {
         extract::ConnectInfo,
         http::{Request, Response, StatusCode},
     };
-    use serde_json::{json, Value};
+    use serde_json::{Value, json};
     use tower::ServiceExt;
 
     async fn test_app(max_size: usize, rate_limit: u32) -> Router {
@@ -211,8 +237,10 @@ mod tests {
             .unwrap()
     }
 
-    async fn json_body(resp: Response<axum::body::BoxBody>) -> Value {
-        let bytes = hyper::body::to_bytes(resp.into_body()).await.unwrap();
+    async fn json_body(resp: Response<Body>) -> Value {
+        let bytes = axum::body::to_bytes(resp.into_body(), usize::MAX)
+            .await
+            .unwrap();
         serde_json::from_slice(&bytes).unwrap()
     }
 

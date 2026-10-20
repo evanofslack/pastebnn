@@ -1,6 +1,6 @@
 use axum::{
-    extract::ConnectInfo,
-    http::{header, Request, StatusCode},
+    extract::{ConnectInfo, Request, State},
+    http::{StatusCode, header},
     middleware::Next,
     response::{IntoResponse, Response},
 };
@@ -65,7 +65,7 @@ impl RateLimiter {
         }
     }
 
-    fn client_ip<B>(&self, req: &Request<B>) -> Option<IpAddr> {
+    fn client_ip<B>(&self, req: &axum::http::Request<B>) -> Option<IpAddr> {
         if self.trust_proxy {
             // rightmost entry is the one appended by our own reverse proxy
             let forwarded = req
@@ -84,16 +84,16 @@ impl RateLimiter {
     }
 }
 
-pub async fn limit<B>(limiter: Arc<RateLimiter>, req: Request<B>, next: Next<B>) -> Response {
-    if let Some(ip) = limiter.client_ip(&req) {
-        if let Err(retry_after) = limiter.check(ip, Instant::now()) {
-            tracing::debug!(%ip, "rate limited");
-            return (
-                StatusCode::TOO_MANY_REQUESTS,
-                [(header::RETRY_AFTER, retry_after.to_string())],
-            )
-                .into_response();
-        }
+pub async fn limit(State(limiter): State<Arc<RateLimiter>>, req: Request, next: Next) -> Response {
+    if let Some(ip) = limiter.client_ip(&req)
+        && let Err(retry_after) = limiter.check(ip, Instant::now())
+    {
+        tracing::debug!(%ip, "rate limited");
+        return (
+            StatusCode::TOO_MANY_REQUESTS,
+            [(header::RETRY_AFTER, retry_after.to_string())],
+        )
+            .into_response();
     }
     next.run(req).await
 }
@@ -127,7 +127,7 @@ mod tests {
 
     #[test]
     fn forwarded_for_only_when_trusted() {
-        let req = Request::builder()
+        let req = axum::http::Request::builder()
             .header("x-forwarded-for", "9.9.9.9, 1.2.3.4")
             .extension(ConnectInfo(SocketAddr::from(([127, 0, 0, 1], 80))))
             .body(())
