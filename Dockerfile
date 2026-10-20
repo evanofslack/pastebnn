@@ -11,7 +11,7 @@ COPY src ./src
 RUN touch src/main.rs && cargo build --release --locked
 
 
-FROM node:24-alpine AS builder-frontend
+FROM node:26-alpine AS builder-frontend
 WORKDIR /web
 
 COPY web/package.json web/package-lock.json ./
