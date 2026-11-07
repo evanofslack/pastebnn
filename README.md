@@ -1,6 +1,6 @@
 # pastebnn
 
-a simple pastebin server built rust and svelte
+a simple pastebin server built with rust and svelte
 
 ## demo
 
@@ -47,6 +47,7 @@ redis is password protected, capped at 256mb, stores data in a named volume and 
 ## development
 
 ```sh
+git clone https://github.com/evanofslack/pastebnn.git && cd pastebnn
 cargo run                    # api + built frontend on :8080
 cd web && npm run dev        # frontend dev server, proxies /api to :8080
 REDIS_PASSWORD=dev docker compose -f docker-compose-dev.yaml up --build
@@ -88,21 +89,6 @@ when using redis, cap its memory (the bundled compose uses `--maxmemory 256mb --
 
 ## design
 
-server: json rest api w/ tokio, axum and serde. 
+server: json rest api w/ tokio, axum and serde.
 
 ui: sveltekit and tailwind
-
-
-## developement
-
-`git clone https://github.com/evanofslack/pastebnn.git && cd pastebnn`
-
-`cargo run`
-
-or
-
-`docker compose -f docker-compose-dev.yaml up`
-
-
-
-
